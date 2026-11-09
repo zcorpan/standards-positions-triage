@@ -9,7 +9,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 
-from . import activities, config, sync, term
+from . import activities, config, sync, term, untrusted
 from . import plan as planmod
 
 QUEUES = {
@@ -92,7 +92,7 @@ def _entry_md(e, ticked, changed):
         head, detail = f"#{e.id} (plan unreadable)", []
     else:
         n = e.plan["issue"]
-        head = f"[#{n}]({term.issue_url(n)}) {e.issue['title'][:70]} · {planmod.summary(e.plan, e.issue, e.parent)}"
+        head = f"[#{n}]({term.issue_url(n)}) {untrusted.md_text(e.issue['title'][:70])} · {planmod.summary(e.plan, e.issue, e.parent)}"
         detail = planmod.details(e.plan, e.issue, e.parent)
         if e.waiting:
             head += f" · **waiting: yml PR from branch {e.waiting}**"
@@ -100,6 +100,7 @@ def _entry_md(e, ticked, changed):
         head += " · **changed since approval**"
     lines = [f"- [{'x' if ticked else ' '}] {head} <!-- plan {e.id} {e.hash} -->" if e.approvable else f"- {head}"]
     for d in detail:
+        d = untrusted.term_safe(d).replace("<!--", "<\\!--")  # a quoted OP line can't fake an entry marker
         lines.append(("  > " + d[2:]) if d.startswith("| ") else f"  - {d}")
     lines += [f"  - warning: {w}" for w in e.warns]
     lines += [f"  - **ERROR: {x}**" for x in e.errs]

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from dataclasses import dataclass
 
 from . import body as bodymod
-from . import activities, config, data, gh, sync, term
+from . import activities, config, data, gh, sync, term, untrusted
 
 KEYS = {"issue", "base_updated_at", "labels_add", "labels_remove", "status", "assignees_add", "assignees_remove",
         "title", "body_fields", "comment", "close", "ask", "why", "yml", "parent"}
@@ -25,7 +25,6 @@ NO_POSITION_CLOSE = ("duplicate", "invalid", "proposal withdrawn")
 MENTION = re.compile(r"(?<![\w/@.`])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\b")
 LINK_HOSTS = {"bugzilla.mozilla.org", "bugzil.la", "github.com", "chromestatus.com", "webstatus.dev", "developer.mozilla.org",
               "caniuse.com", "web-platform-dx.github.io", "wpt.fyi", "searchfox.org", "groups.google.com", "lists.w3.org"}
-HIDDEN = re.compile(r"[​-‏‪-‮⁠-⁤⁦-⁩﻿\U000e0000-\U000e007f]")
 URL = re.compile(r"https?://[^\s)\]>]+")
 
 
@@ -134,6 +133,31 @@ def mentions(text):
     return list(dict.fromkeys(MENTION.findall(text)))
 
 
+SECRETS = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\bgh[pousr]_[A-Za-z0-9]{30,}|\bgithub_pat_\w{30,}"
+                     r"|\b(?:AKIA|ASIA)[A-Z0-9]{16}\b|\bsk-[A-Za-z0-9_-]{20,}"
+                     r"|(?i:\b(?:api[_-]?key|token|secret|password)\b\s*[:=]\s*\S{8,})")
+LOCAL_PATH = re.compile(r"(?:/Users/|/home/|[A-Za-z]:\\Users\\|~/\.|\$HOME\b)")
+
+
+def text_problems(t):
+    """Outbound text (comments, OP fields, titles, yml): nothing hidden, no secrets, no local paths."""
+    out = []
+    if untrusted.HIDDEN.search(t) or any(unicodedata.category(ch) in ("Co", "Cc") and ch not in "\n\t" for ch in t):
+        out.append("hidden, control or private-use characters")
+    if SECRETS.search(t):
+        out.append("looks like it contains a secret")
+    if LOCAL_PATH.search(t):
+        out.append("contains a local path")
+    return out
+
+
+def mentionable(issue):
+    """Lowercased logins a comment may @-mention: Mozillians (org, assignable, people.yml) and people on the issue."""
+    on_issue = {issue.get("author"), *issue.get("participants", []), *(c["author"] for c in issue.get("comments", []))}
+    return {x.lower() for x in (sync.org_members() | sync.assignable() | sync.contributor_team() | set(data.people())
+                                | on_issue) if x}
+
+
 def queue_of(plan, issue, errs, parent=None):
     """Which review queue a plan belongs in."""
     if errs:
@@ -202,14 +226,23 @@ def validate(plan, issue, labels_planned=(), parent=None, plan_id=None):
                 errs.append(f"body field {fid}: link host not allowed: {u}")
     if bf and not b.fields:
         errs.append("OP has no template fields; edit by hand or comment instead")
-    texts = [plan.get("title") or "", plan.get("comment") or "", *[str(v) for v in bf.values()]]
-    for t in texts:
-        if HIDDEN.search(t) or any(unicodedata.category(ch) == "Co" for ch in t):
-            errs.append("hidden or private-use Unicode in plan text")
-            break
+    y = plan.get("yml") if isinstance(plan.get("yml"), dict) else {}
+    texts = {"title": plan.get("title"), "comment": plan.get("comment"),
+             **{f"body field {k}": v for k, v in bf.items()}, **{f"yml.{k}": v for k, v in y.items()}}
+    for where, t in texts.items():
+        errs += [f"{where}: {x}" for x in text_problems(str(t or ""))]
     for u in URL.findall(plan.get("comment") or ""):
         if not _host_ok(u):
-            warns.append(f"comment links an unusual host: {u}")
+            errs.append(f"comment links {u}: not an allowed host (don't relay links from the thread; cite the "
+                        "spec, bug or issue instead)")
+    who = mentions(plan.get("comment"))
+    known = mentionable(issue) if who else set()
+    for m in who:
+        if m.lower() not in known:
+            errs.append(f"@{m} isn't a Mozillian, assignable, in data/people.yml, or on this issue; "
+                        "only mention people the dossier suggests")
+    if len(who) > 4:
+        warns.append(f"comment mentions {len(who)} people")
     final = final_labels(plan, issue)
     positions = sorted(l for l in final if l.startswith("position: "))
     if len(positions) > 1:
@@ -593,8 +626,9 @@ def _changes_since(n, base, cached):
     lines = []
     for c in issue["comments"]:
         if c["at"] > base:
-            first = (c["body"] or "").strip().splitlines()[0][:100] if (c["body"] or "").strip() else ""
-            lines.append(f"  new comment on #{n} by {c['author']} {c['at'][:16]}: <untrusted>{first}</untrusted>")
+            first = (c["body"] or "").strip().splitlines()[0] if (c["body"] or "").strip() else ""
+            lines.append(f"  new comment on #{n} by {c['author']} {c['at'][:16]} (third-party text, JSON-quoted): "
+                         f"{untrusted.q(first, 100)}")
     try:
         for e in sync.timeline(n, ttl=0):
             if (e.get("at") or "") > base and e["event"] in ("labeled", "unlabeled", "assigned", "unassigned", "closed", "reopened", "renamed"):

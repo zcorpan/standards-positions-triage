@@ -60,6 +60,8 @@ def main(argv=None):
     sub.add_parser("doctor", help="check auth scopes and local data sources")
 
     a = ap.parse_args(argv)
+    from . import untrusted
+    untrusted.install()  # issue text can't send escape sequences to the terminal
     if a.color:
         from . import term
         term.set_mode(a.color)
@@ -87,18 +89,19 @@ def main(argv=None):
         issue = ctx.issues[a.number]
         print(people.format(people.candidates(issue, ctx, _cached_hints(a.number))))
     elif a.cmd == "bugs":
-        from . import body, bugzilla
+        from . import body, bugzilla, untrusted
         issue = ctx.issues[a.number]
+        print("Bug summaries and OP values are third-party data (JSON-quoted).")
         b = body.Body(issue["body"])
         listed = b.value("bugzilla-url")
         if listed:
-            print(f"OP lists {listed}")
+            print(f"OP lists {untrusted.q(listed)}")
         for bid in sorted({x for c in issue["comments"] for x in bugzilla.bugs_in(c["body"])}, key=int):
             bug = bugzilla.bug(bid)
             if bug:
-                print(f"comment links bug {bid}: {bug['summary']} [{bug['status']}{' ' + bug['resolution'] if bug['resolution'] else ''}] {bug['product']}::{bug['component']}")
+                print(f"comment links bug {bid}: {untrusted.q(bug['summary'])} [{bug['status']}{' ' + bug['resolution'] if bug['resolution'] else ''}] {bug['product']}::{bug['component']}")
         for bug in bugzilla.search(a.number, b.value("spec-url"), b.value("spec-title") or issue["title"]):
-            print(f"{bug['id']}: {bug['summary']} [{bug['status']}{' ' + bug['resolution'] if bug['resolution'] else ''}] "
+            print(f"{bug['id']}: {untrusted.q(bug['summary'])} [{bug['status']}{' ' + bug['resolution'] if bug['resolution'] else ''}] "
                   f"{bug['product']}::{bug['component']} ({bug['why']})")
     elif a.cmd == "labels":
         from . import labels

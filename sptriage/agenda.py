@@ -1,6 +1,6 @@
 """Markdown for the monthly triage meeting notes ("Next" section)."""
 
-from . import checks, rank
+from . import checks, rank, untrusted
 
 URL = "https://github.com/mozilla/standards-positions/issues/"
 
@@ -17,7 +17,7 @@ def build(ctx, per=6):
         if items:
             out.append(f"* {title}")
             for issue, msg in items[:per]:
-                out.append(f"  * [{issue['title']}]({URL}{issue['number']}) ({msg})")
+                out.append(f"  * [{untrusted.md_text(issue['title'])}]({URL}{issue['number']}) ({msg})")
             if len(items) > per:
                 out.append(f"  * … {len(items) - per} more")
 
@@ -37,5 +37,5 @@ def build(ctx, per=6):
                         key=lambda i: i["created"])
     out.append(f"* Unscreened: {len(unscreened)} open")
     for i in unscreened[:3]:
-        out.append(f"  * [{i['title']}]({URL}{i['number']}) (opened {i['created'][:10]})")
+        out.append(f"  * [{untrusted.md_text(i['title'])}]({URL}{i['number']}) (opened {i['created'][:10]})")
     return "\n".join(out)

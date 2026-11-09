@@ -4,7 +4,7 @@ import re
 from datetime import datetime, timezone
 
 from . import body as bodymod
-from . import activities, config, data, sync
+from . import activities, config, data, sync, untrusted
 from .bugzilla import bugs_in
 
 PROPOSAL_RE = re.compile(
@@ -82,9 +82,14 @@ def position_label(issue):
     return None
 
 
+def visible_comments(issue):
+    """Comments a reader sees: not minimized (spam, abuse, off-topic, …)."""
+    return [c for c in issue["comments"] if not c.get("minimized")]
+
+
 def proposed(text):
     """(position, soft) proposed in a comment's text, or None."""
-    text = re.sub(r"(?m)^>.*$", "", text or "").strip()  # ignore quoted text
+    text = re.sub(r"(?m)^>.*$", "", untrusted.visible(text)).strip()  # ignore quoted and hidden text
     m = PROPOSAL_RE.search(text)
     if m:
         ft = FROM_TO_RE.search(text)
@@ -100,7 +105,7 @@ def proposed(text):
 def proposals(issue, ctx):
     """Mozillian comments that propose a position: [(index, comment, position, soft)]."""
     out = []
-    for i, c in enumerate(issue["comments"]):
+    for i, c in enumerate(visible_comments(issue)):
         if not ctx.is_mozillian(c["author"]):
             continue
         p = proposed(c["body"])
@@ -128,7 +133,7 @@ def continuation_of(issue, ctx):
     has no position of its own."""
     if position_label(issue):
         return None
-    refs = sorted(r for r in {int(x) for x in REF_RE.findall(issue["body"] or "")} if r < issue["number"] and r in ctx.issues)
+    refs = sorted(r for r in {int(x) for x in REF_RE.findall(untrusted.visible(issue["body"]))} if r < issue["number"] and r in ctx.issues)
     if len(refs) > 1:
         title = issue["title"].lower()
         refs = [r for r in refs if len(_title_key(ctx.issues[r]["title"])) >= 4 and _title_key(ctx.issues[r]["title"]) in title]
@@ -159,7 +164,7 @@ def continuation(issue, ctx, props):
         _, c, p, _ = (firm or props)[-1]
         return pn, "new position", (f"{head}: {c['author']} proposed {p} {ctx.days(c['at'])}d ago → resolve on #{pn} "
                                     f"(labels, yml, OP), then close as duplicate of #{pn}")
-    replies = [c for c in issue["comments"] if ctx.is_mozillian(c["author"])]
+    replies = [c for c in visible_comments(issue) if ctx.is_mozillian(c["author"])]
     if replies:
         return pn, "conclusion stands", (f"{head}: {replies[-1]['author']} replied without a new proposal → conclusion "
                                          f"stands: comment linking #{pn}'s position, close as duplicate of #{pn}")
@@ -170,7 +175,7 @@ MENTION_RE = re.compile(r"(?<![\w/@.])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\b")
 
 
 def _strip_code(text):
-    return re.sub(r"`[^`\n]*`", "", re.sub(r"(?s)```.*?```", "", text))
+    return re.sub(r"`[^`\n]*`", "", re.sub(r"(?s)```.*?```", "", untrusted.visible(text)))
 
 
 def engaged(issue, ctx):
@@ -181,7 +186,7 @@ def engaged(issue, ctx):
     b = bodymod.Body(issue["body"])
     for login in MENTION_RE.findall(_strip_code(b.value("mozillians"))):
         out.setdefault(login, {"pinged_by": issue["author"], "pinged_at": issue["created"], "replied": False, "commented": False})
-    for c in issue["comments"]:
+    for c in visible_comments(issue):
         author = c["author"]
         if author in out:
             out[author]["commented"] = True
@@ -206,7 +211,7 @@ def run(issue, ctx):
     pos = position_label(issue)
     b = bodymod.Body(issue["body"])
     props = proposals(issue, ctx)
-    comments = issue["comments"]
+    comments = visible_comments(issue)
     cont = continuation(issue, ctx, props) if is_open else None
     if cont:
         f.append(("continuation" if str(cont[0]) in ctx.locked else "duplicate", cont[2]))
@@ -249,7 +254,7 @@ def run(issue, ctx):
 
     # stalled assignees (approximate; the dossier has exact assignment dates)
     if is_open and issue["assignees"] and not props:
-        last = issue["comments"][-1]["at"] if comments else issue["created"]
+        last = visible_comments(issue)[-1]["at"] if comments else issue["created"]
         for a in issue["assignees"]:
             if not any(c["author"] == a for c in comments) and ctx.days(last) > config.CONF["stall_days"]:
                 f.append(("stalled", f"{a} assigned, no comment from them; last activity {ctx.days(last)}d ago"))

@@ -10,14 +10,15 @@ from .http import cached
 DAY = 86400
 
 ISSUE_FIELDS = """
-  number title body state stateReason createdAt updatedAt closedAt
+  number title body state stateReason createdAt updatedAt closedAt lastEditedAt
   author { login }
   labels(first:40) { nodes { name } }
   assignees(first:10) { nodes { login } }
   participants(first:60) { nodes { login } }
   projectItems(first:5) { nodes { id project { number } fieldValueByName(name:"Status") {
     ... on ProjectV2ItemFieldSingleSelectValue { name } } } }
-  comments(last:10) { totalCount nodes { author { login } createdAt body url } }
+  comments(last:10) { totalCount nodes { author { login } createdAt lastEditedAt body url
+    isMinimized minimizedReason } }
 """
 
 ISSUES_QUERY = """
@@ -60,6 +61,7 @@ def _flatten(node):
         "number": node["number"],
         "title": node["title"],
         "body": node["body"] or "",
+        "body_edited": node.get("lastEditedAt"),
         "state": node["state"],
         "state_reason": node["stateReason"],
         "created": node["createdAt"],
@@ -73,7 +75,8 @@ def _flatten(node):
         "status": items[0]["status"] if items else None,
         "comment_count": node["comments"]["totalCount"],
         "comments": [
-            {"author": (c["author"] or {}).get("login"), "at": c["createdAt"], "body": c["body"], "url": c["url"]}
+            {"author": (c["author"] or {}).get("login"), "at": c["createdAt"], "body": c["body"], "url": c["url"],
+             "edited": c.get("lastEditedAt"), "minimized": (c.get("minimizedReason") or "hidden") if c.get("isMinimized") else None}
             for c in node["comments"]["nodes"]
         ],
     }
