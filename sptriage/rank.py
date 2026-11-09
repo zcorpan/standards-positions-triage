@@ -47,7 +47,7 @@ def table(rows, ctx, limit=20, verbose=False):
             stage = f"{cs['stage'][:8]}{'/M' + str(m) if m else ''}"
         codes = sorted({c for c, _ in f}, key=lambda c: -WEIGHT.get(c, 0))
         title = issue["title"][:60]
-        lines.append(f"{issue['number']:>5} {STATUS_ABBR.get(issue['status'], issue['status'][:5]):5} {stage:16} {','.join(codes)[:44]:44} {title}")
+        lines.append(f"{issue['number']:>5} {STATUS_ABBR.get(issue['status'], (issue['status'] or '')[:5]):5} {stage:16} {','.join(codes)[:44]:44} {title}")
         if verbose:
             for c, msg in f:
                 lines.append(f"{'':28}{c}: {msg}")
