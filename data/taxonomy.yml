@@ -1,0 +1,89 @@
+# Hints the CLI turns into label suggestions. Claude confirms them; they are not applied blindly.
+
+# Spec URL host (or github.com/<org>) -> venue label, and optional topic label.
+# Checked in order; first match wins. Keys match the host suffix, or "github.com/<org>".
+spec_hosts:
+  - {match: spec.whatwg.org, venue: WHATWG}
+  - {match: github.com/whatwg, venue: WHATWG}
+  - {match: drafts.csswg.org, venue: W3C, topic: CSS}
+  - {match: drafts.fxtf.org, venue: W3C, topic: CSS}
+  - {match: drafts.css-houdini.org, venue: W3C, topic: CSS}
+  - {match: github.com/w3c/csswg-drafts, venue: W3C, topic: CSS}
+  - {match: github.com/w3c/fxtf-drafts, venue: W3C, topic: CSS}
+  - {match: svgwg.org, venue: W3C, topic: SVG}
+  - {match: w3c.github.io/mathml, venue: W3C, topic: MathML}
+  - {match: w3c.github.io/webdriver, venue: W3C, topic: WebDriver}
+  - {match: w3c.github.io/webextensions, venue: W3C CG, topic: WebExtensions}
+  - {match: wicg.github.io, venue: W3C CG}
+  - {match: github.com/wicg, venue: W3C CG}
+  - {match: discourse.wicg.io, venue: W3C CG}
+  - {match: privacycg.github.io, venue: W3C CG}
+  - {match: github.com/privacycg, venue: W3C CG}
+  - {match: webassembly.github.io, venue: W3C, topic: WebAssembly}
+  - {match: github.com/webassembly, venue: W3C CG, topic: WebAssembly}
+  - {match: w3c.github.io, venue: W3C}
+  - {match: github.com/w3c, venue: W3C}
+  - {match: w3.org, venue: W3C}
+  - {match: webaudio.github.io, venue: W3C}
+  - {match: immersive-web.github.io, venue: W3C}
+  - {match: gpuweb.github.io, venue: W3C}
+  - {match: w3c-fedid.github.io, venue: W3C}
+  - {match: webmachinelearning.github.io, venue: W3C}
+  - {match: datatracker.ietf.org, venue: IETF}
+  - {match: tools.ietf.org, venue: IETF}
+  - {match: rfc-editor.org, venue: IETF}
+  - {match: httpwg.org, venue: IETF, topic: HTTP}
+  - {match: ietf-wg-, venue: IETF}
+  - {match: tc39.es, venue: Ecma, topic: JavaScript}
+  - {match: github.com/tc39, venue: Ecma, topic: JavaScript}
+  - {match: unicode.org, venue: Unicode}
+  - {match: github.com/explainers-by-googlers, venue: Proposal}
+  - {match: github.com/microsoftedge, venue: Proposal}
+  - {match: docs.google.com, venue: Proposal}
+
+# BCD top-level directory -> topic label. A BCD dir with no label here is a topic gap.
+bcd_topics:
+  api: "topic: API"
+  css: "topic: CSS"
+  html: "topic: HTML"
+  http: "topic: HTTP"
+  javascript: "topic: JavaScript"
+  mathml: "topic: MathML"
+  svg: "topic: SVG"
+  webassembly: "topic: WebAssembly"
+  webdriver: "topic: WebDriver"
+  webextensions: "topic: WebExtensions"
+  manifests: null
+  mediatypes: null
+
+# Bugzilla team_name -> team label. null = no label yet (a gap the `labels` report counts).
+# A label may cover several teams; list each team once.
+bmo_teams:
+  DOM Core: "team: DOM"
+  DOM LWS: null
+  Layout: "team: Layout"
+  Media: "team: Media"
+  GFX: "team: Graphics"
+  Networking: "team: Networking"
+  Javascript: "team: SpiderMonkey"
+  Performance Engineering: "team: Performance"
+  Performance Tools: "team: Performance"
+  Privacy Engineering: "team: Privacy"
+  Privacy Engineering - WebCompat: "team: Privacy"
+  Security Engineering: "team: Security"
+  Accessibility: "team: Accessibility"
+  DevTools: "team: DevTools"
+  Web Compatibility: "team: WebCompat"
+  Crypto: null
+  Credential Management: null
+  Internationalization: null
+  OS Integration: null
+  GAI: null
+  WebDriver: null
+  Web Extensions: null
+  Frontend: null
+  Desktop Integrations: null
+
+# Labels whose team mapping is ambiguous (reported by `labels`, never auto-renamed).
+ambiguous:
+  "team: DOM": "covers both BMO teams DOM Core and DOM LWS"

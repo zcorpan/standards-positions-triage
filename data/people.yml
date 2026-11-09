@@ -1,0 +1,32 @@
+# GitHub login -> Gecko nick (as in mozilla/firefox mots.yaml and `r=` lines), for people whose
+# login differs from their nick or who aren't in the mozilla GitHub org. Identical login/nick
+# pairs of org members are matched automatically. Public information only.
+aethanyc: TYLin
+BorisChiou: boris
+bvandersloot-mozilla: bvandersloot
+codehag: yulia
+dholbert: dholbert
+eemeli: eemeli
+emilio: emilio
+evilpie: evilpie
+Frosne: anna.weine
+hiikezoe: hiro
+hsivonen: hsivonen
+jan-ivar: jib
+jcsteh: Jamie
+jesup: jesup
+jfkthame: jfkthame
+jgraham: jgraham
+jimblandy: jimb
+jnjaeschke: jjaschke
+martinthomson: mt
+mozfreddyb: freddy
+mstange: mstange
+nbp: nbp
+padenot: padenot
+saschanaz: saschanaz
+simon-friedberger: sfriedberger
+smaug----: smaug
+tantek: tantek
+tomrittervg: tjr
+valenting: valentin

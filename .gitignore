@@ -1,0 +1,7 @@
+.cache/
+.state/
+plans/
+tmp/
+sptriage.toml
+__pycache__/
+*.pyc
