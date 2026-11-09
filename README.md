@@ -9,6 +9,15 @@ The work is split in two:
 
 Every write is drafted as a plan file and shown as a diff first. Nothing reaches GitHub until you approve it.
 
+## Quick start
+
+After [Setup](#setup), open two terminal windows, both in this repo's root (not in a standards-positions checkout, or the skill won't load):
+
+1. **Claude:** run `claude`, then ask e.g. "what's ready to close?" or "triage the Unscreened issues". It drafts plans and shows them.
+2. **Review:** run `python3 -m sptriage review` to step through the plans and apply the ones you approve. Or tick entries in `review/*.md` in your editor and run `python3 -m sptriage apply`.
+
+Use a terminal that supports clickable links, e.g. iTerm2, Ghostty, WezTerm, kitty or VS Code's. In Terminal.app, issue URLs are printed on their own line instead.
+
 ## Setup
 
 ```
