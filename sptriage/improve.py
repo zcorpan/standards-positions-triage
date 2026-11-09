@@ -22,28 +22,36 @@ def _key(d, ctx):
     return what, where[0] if where else None
 
 
+def _what(d):
+    return _key(d, None)[0]
+
+
 def summary():
     p = config.state_dir() / "corrections.jsonl"
     notes = config.state_dir() / "skill-notes.md"
     out = []
     c = collections.Counter()
     issues = collections.defaultdict(list)
+    wheres = collections.defaultdict(collections.Counter)
     total = 0
     if p.exists():
         for line in p.read_text().splitlines():
             e = json.loads(line)
             total += 1
             for d in e["diffs"]:
-                k = _key(d, e.get("context"))
-                c[k] += 1
-                issues[k].append(e["issue"])
+                what, where = _key(d, e.get("context"))
+                c[what] += 1
+                issues[what].append(e["issue"])
+                if where:
+                    wheres[what][where] += 1
     applied = len(list((config.plans_dir() / "applied").glob("*[0-9].json"))) if (config.plans_dir() / "applied").exists() else 0
     out.append(f"{total} corrected plan(s) out of {applied} applied.")
     recurring = [(k, n) for k, n in c.most_common() if n >= RECUR]
     if recurring:
         out.append(f"Recurring (≥{RECUR}×), worth a data or skill change:")
-        for (what, where), n in recurring:
-            out.append(f"  {n}× {what}" + (f" (hint from {where})" if where else "") + f"  #{', #'.join(map(str, issues[(what, where)][-5:]))}")
+        for what, n in recurring:
+            src = ", ".join(f"{w} {k}×" for w, k in wheres[what].most_common(3))
+            out.append(f"  {n}× {what}  #{', #'.join(map(str, issues[what][-5:]))}" + (f"  (hints: {src})" if src else ""))
     once = [(k, n) for k, n in c.most_common() if n < RECUR]
     if once:
         out.append(f"Below threshold ({len(once)} kinds); don't act on these alone.")
