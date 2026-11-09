@@ -65,6 +65,16 @@ Some resolutions also need `activities.yml`: for issues below 1110 its `position
 
 A later issue that continues a locked one (a "continuation") is resolved on the locked issue through the plan's `parent` block, then closed as its duplicate.
 
+## Untrusted input
+
+Anyone can file or comment on an s-p issue, so the CLI treats issue text, linked pages, Bugzilla and chromestatus data as third-party data:
+- Dossiers JSON-quote it, or put it in random-id `<untrusted>` blocks tagged with who wrote it, and flag what GitHub readers wouldn't see (HTML comments, collapsed `<details>`, mismatched links, hidden Unicode, minimized comments).
+- Checks ignore hidden and minimized text.
+- Terminal output drops escape sequences that aren't sptriage's own.
+- Validation rejects plans that @-mention people who aren't Mozillians or on the issue, link hosts off the allowlist, or carry hidden characters, secrets or local paths.
+
+Batch drafting uses the `sp-drafter` agent (Read, Write and Glob only). `.claude/settings.json` denies direct GitHub writes (`gh issue close`, `gh api -X …`, `sptriage apply`, …), so writes go through plans you approve and an `apply` you run. Those deny rules catch the usual commands; they aren't a sandbox.
+
 ## Data sources
 
 - GitHub: issues, labels, the project 262 Status field, assignable users, and `mozilla` org members (to tell Mozillians apart from others).
