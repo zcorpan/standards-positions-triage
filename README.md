@@ -26,6 +26,8 @@ Optional local checkouts make the who-to-ask hints better:
 - `~/git/mozilla/firefox` gives `mots.yaml`, moz.build Bugzilla components and `r=` reviewer counts.
 - `~/git/mdn/browser-compat-data` provides BCD (otherwise the npm `data.json` is fetched).
 
+A `~/git/mozilla/standards-positions` checkout (`sp_path`) is needed to change `activities.yml`; without one it's read from GitHub.
+
 Override these paths and the thresholds in `sptriage.toml`; see `sptriage/config.py`.
 
 ## Use
@@ -50,6 +52,10 @@ python3 -m sptriage rebase 1472      # an issue changed: show what, and move the
 
 Plans are reviewed in `review/close.md`, `comment.md`, `labels.md`, `decide.md` and `errors.md`: tick `[x]` in an editor, or use `approve`. `apply` writes only ticked entries whose plan hasn't changed since. Colors and links appear on a TTY (`--color always|never`, `NO_COLOR`). Terminal.app has no clickable links, so issue URLs get their own dimmed line there (`SPTRIAGE_LINKS=osc8|url` overrides the detection).
 
+Some resolutions also need `activities.yml`: for issues below 1110 its `position` overrides the label on the dashboard, and a rationale can go stale. Validation says when a plan needs a `yml` block. `apply` then writes the GitHub edits, commits the yml change on a new branch in a worktree under `.cache/sp-worktree/` (your checkout isn't touched), and prints the push and `gh pr create` commands. The close waits until the change is on main; run `apply` again after the merge.
+
+A later issue that continues a locked one (a "continuation") is resolved on the locked issue through the plan's `parent` block, then closed as its duplicate.
+
 ## Data sources
 
 - GitHub: issues, labels, the project 262 Status field, assignable users, and `mozilla` org members (to tell Mozillians apart from others).
@@ -68,6 +74,7 @@ These directories are gitignored and stay on your machine:
 - `review/`: the review queues
 - `.state/`:
   - `journal.jsonl`: every write, with your login, and whether GitHub matched the plan afterwards
+  - `progress.json`, `yml-branches.json`: plans waiting for a yml PR
   - `corrections.jsonl`: where an applied plan differed from the draft
   - `skill-notes.md`: notes for improving the skill
 
