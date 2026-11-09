@@ -250,7 +250,7 @@ def details(plan, issue):
 
 def describe(plan, issue, errs=(), warns=(), verbose=True):
     n = plan["issue"]
-    lines = [f"{term.issue(n)} {issue['title'][:60]}", "  " + summary(plan, issue)]
+    lines = [f"{term.issue(n)} {issue['title'][:60]}", *term.url_lines(term.issue_url(n), "  "), "  " + summary(plan, issue)]
     if verbose:
         lines += ["    " + l for l in details(plan, issue)]
     lines += ["  " + term.c(f"warning: {w}", "yellow") for w in warns]
@@ -429,7 +429,7 @@ def rebase(n):
         cached = None
     issue = sync.refresh_issue(n)
     base = plan.get("base_updated_at") or ""
-    lines = [f"{term.issue(n)} {issue['title'][:60]}"]
+    lines = [f"{term.issue(n)} {issue['title'][:60]}", *term.url_lines(term.issue_url(n), "  ")]
     for c in issue["comments"]:
         if c["at"] > base:
             first = (c["body"] or "").strip().splitlines()[0][:100] if (c["body"] or "").strip() else ""

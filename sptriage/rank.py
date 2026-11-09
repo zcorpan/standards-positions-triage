@@ -52,6 +52,7 @@ def table(rows, ctx, limit=20, verbose=False):
         if codes and codes[0] == "ready-close":
             code_s = term.c(code_s, "green")
         lines.append(f"{term.issue(issue['number'], 5)} {status:5} {term.c(f'{stage:16}', 'dim')} {code_s} {title}")
+        lines += term.url_lines(term.issue_url(issue["number"]), " " * 6)
         if verbose:
             for c, msg in f:
                 lines.append(term.c(f"{'':28}{c}: {msg}", "dim"))

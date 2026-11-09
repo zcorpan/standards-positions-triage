@@ -1,4 +1,5 @@
-"""Terminal colors and OSC 8 links, only when stdout is a TTY (override with --color or SPTRIAGE_COLOR; NO_COLOR disables)."""
+"""Terminal colors and OSC 8 links, only when stdout is a TTY (override with --color or SPTRIAGE_COLOR; NO_COLOR disables).
+Terminals without OSC 8 (Terminal.app, or SPTRIAGE_LINKS=url) get the URL on its own dimmed line instead."""
 
 import contextlib
 import os
@@ -45,8 +46,20 @@ def c(text, *styles):
     return f"\x1b[{';'.join(CODES[s] for s in styles)}m{text}\x1b[0m"
 
 
+def osc8():
+    pref = os.environ.get("SPTRIAGE_LINKS")
+    if pref in ("osc8", "url"):
+        return enabled() and pref == "osc8"
+    return enabled() and os.environ.get("TERM_PROGRAM") != "Apple_Terminal"
+
+
 def link(text, url):
-    return f"\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\" if enabled() else text
+    return f"\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\" if osc8() else text
+
+
+def url_lines(url, indent=""):
+    """[dimmed URL line] when colors are on but links aren't clickable, else []."""
+    return [indent + c(url, "dim")] if enabled() and not osc8() else []
 
 
 def issue_url(n):

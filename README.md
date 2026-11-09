@@ -48,7 +48,7 @@ python3 -m sptriage apply            # write approved plans to GitHub, then veri
 python3 -m sptriage rebase 1472      # an issue changed: show what, and move the plan's base
 ```
 
-Plans are reviewed in `review/close.md`, `comment.md`, `labels.md`, `decide.md` and `errors.md`: tick `[x]` in an editor, or use `approve`. `apply` writes only ticked entries whose plan hasn't changed since. Colors and links appear on a TTY (`--color always|never`, `NO_COLOR`).
+Plans are reviewed in `review/close.md`, `comment.md`, `labels.md`, `decide.md` and `errors.md`: tick `[x]` in an editor, or use `approve`. `apply` writes only ticked entries whose plan hasn't changed since. Colors and links appear on a TTY (`--color always|never`, `NO_COLOR`). Terminal.app has no clickable links, so issue URLs get their own dimmed line there (`SPTRIAGE_LINKS=osc8|url` overrides the detection).
 
 ## Data sources
 

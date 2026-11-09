@@ -143,6 +143,7 @@ def show(nums=None, verbose=False):
                 out.append(f"  {box} #{e.id}: " + "; ".join(e.errs))
                 continue
             out.append(f"  {box} {term.issue(int(e.id), 5)} {e.issue['title'][:60]}")
+            out += term.url_lines(term.issue_url(int(e.id)), "        ")
             out.append(f"        {planmod.summary(e.plan, e.issue)}")
             if verbose:
                 out += ["          " + l for l in planmod.details(e.plan, e.issue)]

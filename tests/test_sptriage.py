@@ -273,6 +273,20 @@ class MiscTests(unittest.TestCase):
         finally:
             term.set_mode(None)
 
+    def test_url_line_without_osc8(self):
+        term.set_mode("always")
+        try:
+            with mock.patch.dict("os.environ", {"TERM_PROGRAM": "Apple_Terminal"}, clear=True):
+                self.assertEqual(term.issue(5), "#5")
+                self.assertEqual(term.strip(term.url_lines("https://x")[0]), "https://x")
+            with mock.patch.dict("os.environ", {"TERM_PROGRAM": "iTerm.app"}, clear=True):
+                self.assertIn("\x1b]8;;", term.issue(5))
+                self.assertEqual(term.url_lines("https://x"), [])
+        finally:
+            term.set_mode(None)
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(term.url_lines("https://x"), [])
+
     def test_queue_table_no_status(self):
         ctx = mock.Mock(chromestatus={})
         issue = {"number": 1, "status": None, "title": "t"}
