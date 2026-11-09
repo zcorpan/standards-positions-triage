@@ -3,7 +3,7 @@
 from . import checks, term
 from .chromestatus import urgency
 
-WEIGHT = {"ready-close": 50, "status-mismatch": 20, "ping-unanswered": 30, "cc-unanswered": 12, "stalled": 10, "missing-bug": 5,
+WEIGHT = {"ready-close": 50, "continuation": 45, "duplicate": 20, "yml-position": 3, "status-mismatch": 20, "ping-unanswered": 30, "cc-unanswered": 12, "stalled": 10, "missing-bug": 5,
           "title": 2, "unlabeled": 3, "missing-fields": 1, "proposed": 0, "closed-no-position": 2}
 
 
@@ -49,7 +49,7 @@ def table(rows, ctx, limit=20, verbose=False):
         title = issue["title"][:60]
         status = STATUS_ABBR.get(issue['status'], (issue['status'] or '')[:5])
         code_s = f"{','.join(codes)[:44]:44}"
-        if codes and codes[0] == "ready-close":
+        if codes and codes[0] in ("ready-close", "continuation"):
             code_s = term.c(code_s, "green")
         lines.append(f"{term.issue(issue['number'], 5)} {status:5} {term.c(f'{stage:16}', 'dim')} {code_s} {title}")
         lines += term.url_lines(term.issue_url(issue["number"]), " " * 6)

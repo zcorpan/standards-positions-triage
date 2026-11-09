@@ -4,7 +4,7 @@ import json
 import secrets
 
 from . import body as bodymod
-from . import bugzilla, checks, config, data, firefox, people, sync, webfeatures
+from . import activities, bugzilla, checks, config, data, firefox, people, sync, webfeatures
 from .rank import STATUS_ABBR
 
 OP_CAP, COMMENT_CAP, MOZ_COMMENT_CAP, COMMENTS = 2000, 500, 4000, 8
@@ -62,6 +62,41 @@ def hints(issue, ctx, cs_feature=None, wf=None):
     return out
 
 
+def _yml_lines(n, heading):
+    try:
+        key, e = activities.entry(n)
+    except Exception as ex:
+        return [f"\n(activities.yml unavailable: {ex})"] if heading else []
+    if e is None:
+        return []
+    out = [f"\n## {heading}"] if heading else []
+    out.append(f"- activities.yml {key!r}: position {e.get('position') or '(from the label)'}"
+               + (" (overrides the label; changing it needs `yml.position`)" if e.get("position") else ""))
+    for f in ("rationale", "description"):
+        if e.get(f):
+            out.append(f"- {f}: {e[f].strip()[:600]}")
+    return out
+
+
+def similar(issue, ctx, limit=3):
+    """Earlier issues with the same cleaned title or spec URL."""
+    def norm(t):
+        return " ".join((bodymod.clean_title(t) or t).lower().split())
+
+    b = bodymod.Body(issue["body"])
+    url = (b.value("spec-url") or "").rstrip("/").split("#")[0]
+    out = []
+    for n, other in sorted(ctx.issues.items(), reverse=True):
+        if n >= issue["number"]:
+            continue
+        ou = (bodymod.Body(other["body"]).value("spec-url") or "").rstrip("/").split("#")[0]
+        if norm(other["title"]) == norm(issue["title"]) or (url and ou == url):
+            out.append(other)
+            if len(out) == limit:
+                break
+    return out
+
+
 def _wrap(text, cap):
     text = (text or "").strip()
     if len(text) > cap:
@@ -104,6 +139,21 @@ def build(number, ctx, refresh=True):
 
     lines.append("\n## Findings")
     lines += [f"- {c}: {m}" for c, m in findings] or ["- none"]
+
+    lines += _yml_lines(number, "activities.yml")
+    pn = checks.continuation_of(issue, ctx) if issue["state"] == "OPEN" else None
+    if pn:
+        par = ctx.issues[pn]
+        lock = ctx.locked.get(str(pn))
+        what = f"locked{', ' + lock if lock else ''}" if lock is not None else par["state"].lower()
+        lines.append(f"\n## Parent #{pn} {par['title']} ({what})")
+        lines.append(f"- labels: {', '.join(par['labels']) or '-'} · status {par['status']} · closed {(par.get('closed') or '-')[:10]}"
+                     f" · base_updated_at {par['updated']} (for `parent.base_updated_at`)")
+        lines += _yml_lines(pn, None)
+    dups = similar(issue, ctx)
+    if dups:
+        lines.append("\n## Earlier issues with the same title or spec URL")
+        lines += [f"- #{d['number']} {d['title']} ({d['state'].lower()}; {', '.join(d['labels']) or 'no labels'})" for d in dups]
 
     cs = ctx.chromestatus.get(number)
     feat = None

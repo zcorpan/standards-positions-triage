@@ -25,6 +25,7 @@ _DEFAULTS = {
     "review_dir": str(ROOT / "review"),
     "firefox_path": "~/git/mozilla/firefox",
     "bcd_path": "~/git/mdn/browser-compat-data",
+    "sp_path": "~/git/mozilla/standards-positions",
     "stall_days": 90,
     "ping_days": 30,
     "close_days": 7,

@@ -179,6 +179,18 @@ def org_members():
     return set(cached("org-members", 7 * DAY, fetch))
 
 
+def locked():
+    """{issue number (str): lock reason or ""} for locked issues; cached a day."""
+
+    def fetch():
+        q = f"repo:{config.REPO} is:issue is:locked"
+        pages = gh.api(f"search/issues?per_page=100&q={q.replace(' ', '+').replace(':', '%3A')}", paginate=True) or []
+        pages = pages if isinstance(pages, list) else [pages]
+        return {str(i["number"]): i.get("active_lock_reason") or "" for pg in pages for i in pg.get("items", [])}
+
+    return cached("locked", DAY, fetch)
+
+
 def timeline(number, ttl=3600):
     """Assignment and label events for one issue."""
 

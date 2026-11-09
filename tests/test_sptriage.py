@@ -6,7 +6,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from sptriage import body, checks, config, data, improve, plan, rank, review, term, webfeatures
+from sptriage import activities, body, checks, config, data, improve, plan, rank, review, term, webfeatures
 
 FIX = Path(__file__).parent / "fixtures"
 
@@ -125,7 +125,8 @@ class PlanTests(unittest.TestCase):
                       "body": fixture(1472), "title": "x"}
         p = [mock.patch("sptriage.sync.repo_labels", return_value={"topic: API": {}, "venue: W3C": {}}),
              mock.patch("sptriage.sync.assignable", return_value={"jesup"}),
-             mock.patch("sptriage.plan.team_hint", return_value="ask")]
+             mock.patch("sptriage.plan.team_hint", return_value="ask"),
+             mock.patch("sptriage.activities.entries", return_value={})]
         for x in p:
             x.start()
             self.addCleanup(x.stop)
@@ -168,7 +169,8 @@ class OpsTests(unittest.TestCase):
     def setUp(self):
         labels = {l: {} for l in ("topic: CSS", "position: positive", "position: negative", "invalid", "venue: W3C")}
         for x in (mock.patch("sptriage.sync.repo_labels", return_value=labels),
-                  mock.patch("sptriage.sync.assignable", return_value={"a"})):
+                  mock.patch("sptriage.sync.assignable", return_value={"a"}),
+                  mock.patch("sptriage.activities.entries", return_value={})):
             x.start()
             self.addCleanup(x.stop)
 
@@ -220,7 +222,8 @@ class ReviewTests(unittest.TestCase):
         for x in (mock.patch.dict(config.CONF, conf), mock.patch("sptriage.sync.repo_labels", return_value=labels),
                   mock.patch("sptriage.sync.assignable", return_value=set()),
                   mock.patch("sptriage.sync.load_issues", return_value={7: ISSUE}),
-                  mock.patch("sptriage.review._issues", return_value={7: ISSUE})):
+                  mock.patch("sptriage.review._issues", return_value={7: ISSUE}),
+                  mock.patch("sptriage.activities.entries", return_value={})):
             x.start()
             self.addCleanup(x.stop)
         self.write_plan(labels_add=["position: positive"], close={"reason": "completed"})
@@ -245,20 +248,194 @@ class ReviewTests(unittest.TestCase):
 
     def test_apply_only_approved(self):
         review.show()
-        with mock.patch("sptriage.plan.apply", return_value=True) as ap, redirect_stdout(io.StringIO()) as out:
+        with mock.patch("sptriage.plan.apply", return_value="done") as ap, redirect_stdout(io.StringIO()) as out:
             review.apply()
         ap.assert_not_called()
         self.assertIn("1 unapproved", out.getvalue())
         review.approve(["7"])
-        with mock.patch("sptriage.plan.apply", return_value=True) as ap, redirect_stdout(io.StringIO()):
+        with mock.patch("sptriage.plan.apply", return_value="done") as ap, redirect_stdout(io.StringIO()):
             review.apply()
-        ap.assert_called_once_with(7, write=True)
+        ap.assert_called_once_with(7, write=True, yml_out=[])
 
     def test_edit_by_hand(self):
         review.show()
         f = config.review_dir() / "close.md"
         f.write_text(f.read_text().replace("- [ ] [#7]", "- [x] [#7]"))
         self.assertEqual(review.current_approved(review.entries(None, {7: ISSUE})), {"7"})
+
+
+class ContinuationTests(unittest.TestCase):
+    """Locked issues with a later issue for the same feature, each treated as open at triage time."""
+
+    def setUp(self):
+        fx = json.loads((FIX / "continuations.json").read_text())
+        ctx = mock.Mock()
+        ctx.issues = {int(k): v for k, v in fx["issues"].items()}
+        ctx.locked = fx["locked"]
+        ctx.is_mozillian = lambda l, m=set(fx["mozillians"]): l in m
+        ctx.days = lambda iso: 100
+        self.ctx = ctx
+        x = mock.patch("sptriage.checks.yml_position", side_effect=lambda n: {336: "neutral", 522: "neutral", 100: "negative"}.get(n))
+        x.start()
+        self.addCleanup(x.stop)
+
+    def cont(self, n):
+        i = dict(self.ctx.issues[n], state="OPEN")
+        return checks.continuation(i, self.ctx, checks.proposals(i, self.ctx))
+
+    def test_casebook(self):
+        self.assertEqual(self.cont(687)[:2], (336, "new position"))
+        self.assertIn("hafta proposed positive", self.cont(687)[2])
+        self.assertEqual(self.cont(1018)[:2], (336, "conclusion stands"))
+        self.assertEqual(self.cont(721)[:2], (522, "conclusion stands"))
+        self.assertEqual(self.cont(1306)[:2], (100, "conclusion stands"))  # OP links #100 and #336; the title says WebUSB
+        for n in (738, 720, 906):  # own position; process question; plain duplicate without a link
+            self.assertIsNone(self.cont(n), n)
+
+    def test_from_to(self):
+        self.assertEqual(checks.proposed("I propose changing the position from neutral to positive."), ("positive", False))
+        self.assertEqual(checks.proposed("Proposed position: negative"), ("negative", False))
+
+
+YML_ENTRY = {7: ("Seven", {"issue": 7, "position": "neutral", "rationale": "Old.\n"})}
+
+
+class YmlTests(unittest.TestCase):
+    def setUp(self):
+        labels = {l: {} for l in ("topic: CSS", "position: positive", "position: neutral", "duplicate", "invalid")}
+        for x in (mock.patch("sptriage.sync.repo_labels", return_value=labels),
+                  mock.patch("sptriage.sync.assignable", return_value=set())):
+            x.start()
+            self.addCleanup(x.stop)
+
+    def lint(self, entries, **kw):
+        with mock.patch("sptriage.activities.entries", return_value=entries):
+            return plan.validate({"issue": 7, "base_updated_at": ISSUE["updated"], **kw}, ISSUE)
+
+    def test_needs_yml(self):
+        pos = dict(labels_add=["position: positive"], close={"reason": "completed"})
+        errs, _ = self.lint(YML_ENTRY, **pos)
+        self.assertIn("overrides the label", errs[0])
+        errs, warns = self.lint(YML_ENTRY, **pos, yml={"position": "positive"})
+        self.assertEqual(errs, [])
+        self.assertIn("rationale that may be stale", warns[0])
+        errs, warns = self.lint(YML_ENTRY, **pos, yml={"position": "positive", "rationale": "New."})
+        self.assertEqual((errs, [w for w in warns if "yml" in w]), ([], []))
+        self.assertIn("doesn't match", self.lint(YML_ENTRY, **pos, yml={"position": "negative"})[0][0])
+        _, warns = self.lint(YML_ENTRY, labels_add=["duplicate"], close={"reason": "duplicate", "duplicate_of": 3})
+        self.assertTrue(any("dropped from the dashboard" in w for w in warns))
+        errs, warns = self.lint({}, **pos)
+        self.assertEqual((errs, [w for w in warns if "yml" in w]), ([], []))
+
+    def test_duplicate_close(self):
+        self.assertIn("needs duplicate_of", self.lint({}, close={"reason": "duplicate"})[0][0])
+        self.assertEqual(self.lint({}, close={"reason": "duplicate", "duplicate_of": 3})[0], [])
+        self.assertTrue(self.lint({}, close={"reason": "completed", "duplicate_of": 3})[0])
+
+    def test_parent_ops_and_summary(self):
+        par = {**ISSUE, "number": 3, "labels": ["position: neutral"], "state": "CLOSED"}
+        p = {"issue": 7, "base_updated_at": ISSUE["updated"], "close": {"reason": "duplicate", "duplicate_of": 3},
+             "parent": {"issue": 3, "base_updated_at": ISSUE["updated"], "labels_add": ["position: positive"],
+                        "labels_remove": ["position: neutral"], "comment": "See #7.", "yml": {"position": "positive"}}}
+        with mock.patch("sptriage.activities.entries", return_value={3: ("Three", {"issue": 3, "position": "neutral"})}):
+            got = [(o.kind, o.issue) for o in plan.ops(p, ISSUE, par)]
+            self.assertEqual(got, [("label+", 3), ("label-", 3), ("comment", 3), ("yml", 3), ("close", None)])
+            s = plan.summary(p, ISSUE, par)
+            self.assertTrue(s.startswith("#3: +position: positive"), s)
+            self.assertIn("yml PR: position: positive · #7: close as duplicate of #3", s)
+            self.assertEqual(plan.validate(p, ISSUE, parent=par)[0], [])
+            self.assertIn("#3:", plan.validate(p, ISSUE, parent={**par, "updated": "2027-01-01"})[0][0])
+            self.assertEqual(plan.queue_of(p, ISSUE, [], par), "comment")
+
+    def test_edit_file_round_trip(self):
+        src = ("A:\n  issue: 7\n  position: neutral\n  rationale: |\n    Old.\n  url: https://a.example/\n"
+               "B:\n  description: |\n    Keep `this`.\n  issue: 8\n")
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "activities.yml"
+            f.write_text(src)
+            activities.edit_file(f, 7, {})
+            self.assertEqual(f.read_text(), src)
+            activities.edit_file(f, 7, {"position": "positive", "rationale": "New."})
+            self.assertEqual(f.read_text(), src.replace("neutral", "positive").replace("Old.", "New."))
+            activities.edit_file(f, 9, {"rationale": "R."}, title="C")
+            self.assertTrue(f.read_text().endswith("C:\n  issue: 9\n  rationale: |\n    R.\n"))
+
+
+class PhasedApplyTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        conf = dict(config.CONF, plans_dir=root / "plans", state_dir=root / "state", cache_dir=root / "cache")
+        labels = {l: {} for l in ("position: positive", "position: neutral")}
+        self.par = {**ISSUE, "number": 3, "labels": ["position: neutral"], "state": "CLOSED", "comments": []}
+        self.child = {**ISSUE, "labels": ["duplicate"]}
+        self.on_main = False
+        self.calls = []
+
+        def refresh(n):
+            if n == 3 and any(c[:2] == ["issue", "edit"] for c in self.calls):
+                return {**self.par, "labels": ["position: positive"], "updated": "2026-02-01T00:00:00Z",
+                        "comments": [{"author": "me", "body": "See #7.", "at": "x"}]}
+            if n == 3:
+                return self.par
+            closed = any(c[:2] == ["issue", "close"] for c in self.calls)
+            return {**self.child, "state": "CLOSED" if closed else "OPEN", "state_reason": "DUPLICATE" if closed else None}
+
+        for x in (mock.patch.dict(config.CONF, conf), mock.patch("sptriage.sync.repo_labels", return_value=labels),
+                  mock.patch("sptriage.sync.assignable", return_value=set()),
+                  mock.patch("sptriage.sync.refresh_issue", side_effect=refresh),
+                  mock.patch("sptriage.gh.viewer", return_value="me"),
+                  mock.patch("sptriage.gh.run", side_effect=lambda a, input=None: self.calls.append(a)),
+                  mock.patch("sptriage.activities.fetch"),
+                  mock.patch("sptriage.activities.entries", return_value={3: ("Three", {"issue": 3, "position": "neutral"})}),
+                  mock.patch("sptriage.activities.matches", side_effect=lambda n, y: self.on_main)):
+            x.start()
+            self.addCleanup(x.stop)
+        plan.save(7, {"issue": 7, "base_updated_at": ISSUE["updated"], "close": {"reason": "duplicate", "duplicate_of": 3},
+                      "parent": {"issue": 3, "base_updated_at": ISSUE["updated"], "labels_add": ["position: positive"],
+                                 "labels_remove": ["position: neutral"], "comment": "See #7.", "yml": {"position": "positive"}}})
+
+    def test_close_waits_for_yml(self):
+        yml = []
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(plan.apply(7, write=True, yml_out=yml), "waiting")
+        self.assertEqual([c[:2] for c in self.calls], [["issue", "edit"], ["issue", "comment"]])
+        self.assertEqual([(c[1], c[2], c[4]) for c in yml], [(3, {"position": "positive"}, 7)])
+        self.assertTrue(plan.path(7).exists())
+        # the parent changed by our own edits; that isn't a concurrent edit
+        self.par = {**self.par, "labels": ["position: positive"], "updated": "2026-02-01T00:00:00Z",
+                    "comments": [{"author": "me", "body": "See #7.", "at": "x"}]}
+        self.on_main = True
+        self.calls.clear()
+        with mock.patch("sptriage.activities.branch_for", return_value="b"), mock.patch("sptriage.activities.done"), \
+                redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(plan.apply(7, write=True, yml_out=[]), "done", out.getvalue())
+        self.assertEqual(self.calls, [["issue", "close", "7", "-R", config.REPO, "--duplicate-of", "3"]])
+        self.assertFalse(plan.path(7).exists())
+
+    def test_prepare_branch(self):
+        import subprocess
+        root = Path(self.tmp.name)
+        git = lambda *a, cwd=None: subprocess.run(["git", *a], cwd=cwd, check=True, capture_output=True)
+        git("init", "-q", "--bare", "-b", "main", str(root / "origin.git"))
+        git("clone", "-q", str(root / "origin.git"), str(root / "sp"))
+        sp = root / "sp"
+        (sp / "activities.yml").write_text("Three:\n  issue: 3\n  position: neutral\n")
+        (sp / "activities.py").write_text("import sys\nsys.exit(0)\n")
+        for a in (("add", "."), ("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init"), ("push", "-q", "origin", "main")):
+            git(*a, cwd=sp)
+        with mock.patch.dict(config.CONF, {"sp_path": str(sp)}), \
+                mock.patch.dict("os.environ", {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}):
+            branch, wt, cmds = activities.prepare([(7, 3, {"position": "positive"}, "T", 7)])
+            self.assertEqual(activities.branch_for(7), branch)
+            self.assertIn("position: positive", (wt / "activities.yml").read_text())
+            log = subprocess.run(["git", "log", "-1", "--format=%s%n%b", branch], cwd=sp, capture_output=True, text=True).stdout
+            self.assertEqual(log.strip(), "Three (positive)\nSee #7.")
+            self.assertIn("neutral", (sp / "activities.yml").read_text())  # the user's checkout is untouched
+            activities.done(7)
+            self.assertFalse(wt.exists())
+            self.assertIsNone(activities.branch_for(7))
 
 
 class MiscTests(unittest.TestCase):

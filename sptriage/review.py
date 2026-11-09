@@ -9,7 +9,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 
-from . import config, sync, term
+from . import activities, config, sync, term
 from . import plan as planmod
 
 QUEUES = {
@@ -32,6 +32,12 @@ class Entry:
     issue: dict = None
     errs: list = field(default_factory=list)
     warns: list = field(default_factory=list)
+    parent: dict = None
+
+    @property
+    def waiting(self):
+        """The yml branch this plan waits on, if it's part-way applied."""
+        return activities.branch_for(self.id) if self.id.isdigit() else None
 
     @property
     def approvable(self):
@@ -39,7 +45,7 @@ class Entry:
             return False
         if self.id == NEW_LABELS:
             return True
-        return any(not o.noop for o in planmod.ops(self.plan, self.issue)) or bool(self.plan.get("close"))
+        return any(not o.noop for o in planmod.ops(self.plan, self.issue, self.parent)) or bool(self.plan.get("close"))
 
 
 def plan_hash(obj):
@@ -64,11 +70,12 @@ def entries(nums=None, issues=None):
         if nums and n not in nums:
             continue
         try:
-            plan, issue, errs, warns = planmod.check(n, issues)
+            plan, issue, errs, warns, parent = planmod.check(n, issues)
         except (planmod.PlanError, json.JSONDecodeError) as e:
             out.append(Entry(str(n), "errors", "", {"issue": n}, None, [str(e)]))
             continue
-        out.append(Entry(str(n), planmod.queue_of(plan, issue, errs), plan_hash(plan), plan, issue, errs, warns))
+        out.append(Entry(str(n), planmod.queue_of(plan, issue, errs, parent), plan_hash(plan), plan, issue, errs, warns,
+                         parent))
     lp = planmod.path("labels")
     if lp.exists() and not nums:
         spec = json.loads(lp.read_text())
@@ -85,8 +92,10 @@ def _entry_md(e, ticked, changed):
         head, detail = f"#{e.id} (plan unreadable)", []
     else:
         n = e.plan["issue"]
-        head = f"[#{n}]({term.issue_url(n)}) {e.issue['title'][:70]} · {planmod.summary(e.plan, e.issue)}"
-        detail = planmod.details(e.plan, e.issue)
+        head = f"[#{n}]({term.issue_url(n)}) {e.issue['title'][:70]} · {planmod.summary(e.plan, e.issue, e.parent)}"
+        detail = planmod.details(e.plan, e.issue, e.parent)
+        if e.waiting:
+            head += f" · **waiting: yml PR from branch {e.waiting}**"
     if changed:
         head += " · **changed since approval**"
     lines = [f"- [{'x' if ticked else ' '}] {head} <!-- plan {e.id} {e.hash} -->" if e.approvable else f"- {head}"]
@@ -144,9 +153,11 @@ def show(nums=None, verbose=False):
                 continue
             out.append(f"  {box} {term.issue(int(e.id), 5)} {e.issue['title'][:60]}")
             out += term.url_lines(term.issue_url(int(e.id)), "        ")
-            out.append(f"        {planmod.summary(e.plan, e.issue)}")
+            out.append(f"        {planmod.summary(e.plan, e.issue, e.parent)}")
+            if e.waiting:
+                out.append("        " + term.c(f"waiting: yml PR from branch {e.waiting} isn't on main yet; `apply` finishes it", "yellow"))
             if verbose:
-                out += ["          " + l for l in planmod.details(e.plan, e.issue)]
+                out += ["          " + l for l in planmod.details(e.plan, e.issue, e.parent)]
             out += ["        " + term.c(f"warning: {w}", "yellow") for w in e.warns]
             out += ["        " + term.c(f"ERROR: {x}", "red", "bold") for x in e.errs]
     if not out:
@@ -201,22 +212,35 @@ def apply(nums=None, dry_run=False):
             changed.append(n)
         else:
             unapproved += 1
-    ok, failed = [], []
+    ok, failed, waiting, yml = [], [], [], []
     lp = planmod.path("labels")
     if not nums and lp.exists() and t.get(NEW_LABELS) == plan_hash(json.loads(lp.read_text())):
         planmod.apply_labels_file(not dry_run)
     for n in todo:
         try:
-            good = planmod.apply(n, write=not dry_run)
-        except planmod.PlanError as e:
+            r = planmod.apply(n, write=not dry_run, yml_out=yml)
+        except (planmod.PlanError, activities.YmlError) as e:
             print(f"#{n}: {e}")
-            good = False
-        (ok if good else failed).append(n)
+            r = "failed"
+        {"done": ok, "waiting": waiting, "failed": failed}[r].append(n)
         print()
+    pr = None
+    if yml and not dry_run:
+        try:
+            pr = activities.prepare(yml)
+        except activities.YmlError as e:
+            print(term.c(f"yml branch not created: {e}", "red", "bold"))
     es = entries(None, sync.load_issues())
     write(es, current_approved(es))
     verb = "would apply" if dry_run else "applied"
     lines = [term.c(f"{verb} {len(ok)}", "green") + (": " + " ".join(term.issue(n) for n in ok) if ok else "")]
+    if waiting:
+        lines.append(term.c(f"waiting for a yml PR {len(waiting)}: " + " ".join(f"#{n}" for n in waiting), "yellow")
+                     + "; once it's merged, `apply` closes them")
+    if pr:
+        branch, wt, cmds = pr
+        lines.append(f"yml changes committed on branch {branch} (worktree {wt}). Push it and open the PR:")
+        lines += ["  " + c for c in cmds]
     if failed:
         lines.append(term.c(f"failed {len(failed)}: " + " ".join(f"#{n}" for n in failed), "red", "bold"))
     if changed:
@@ -243,7 +267,7 @@ def interactive(nums=None):
             i += 1
             continue
         print(term.c(QUEUES[e.queue][0], "bold") + f" ({i + 1}/{len(es)})" + (term.c("  approved", "green") if e.id in approved else ""))
-        print(planmod.describe(e.plan, e.issue, e.errs, e.warns))
+        print(planmod.describe(e.plan, e.issue, e.errs, e.warns, parent=e.parent))
         choices = ("[a]pprove " if e.approvable else "") + "[u]napprove [s]kip [e]dit [q]uit"
         ans = input(choices + " ").strip().lower()[:1]
         if ans == "e":

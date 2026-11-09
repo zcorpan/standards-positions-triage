@@ -1,0 +1,1118 @@
+{
+"issues": {
+"687": {
+"number": 687,
+"title": "Re-request for postion on Web Serial/Serial API",
+"body": "Since https://github.com/mozilla/standards-positions/issues/336 overheated and got closed by @bgrins, also my re-request https://github.com/mozilla/standards-positions/issues/336#issuecomment-1173177328 on the position got closed.\r\n\r\nBased on https://github.com/mozilla/standards-positions/blob/main/CONTRIBUTING.md I am hereby asking Mozilla / @martinthomson to update the position on this topic.\r\n\r\nWhy:\r\nMany solutions have been provided in the meantime to fulfill this request in a secure and safe way, and also many ways of securing the access itself. Hiding these settings for the experienced users is a better way of implementation, than no implementation at all, for example:\r\n\r\n- about:config\r\n- yes I understand the risks.\r\n- Activate WebSerial, WebUSB, Web....\r\n- only activate for SSL sites\r\n  - ignore invalid certificates or present a \"I understand the risk page\" when an invalid certificate is presented\r\n- only activate in local networks\r\n- only activate for whitelist IP/hostname\r\n- activate for all but blacklist IP/hostname\r\n- or generally the same list of exceptions like for \"unsafe\" pages\r\n- limit to the following COM ports/port range (this prevents access to system internal devices at all) or\r\n- exclude the following COM ports\r\n\r\nFurthermore, I am pointing out your core values:\r\nOur mission is to ensure the Internet is a global public resource, open and accessible to all. An Internet that truly puts people first, where individuals can shape their own experience and are empowered, safe and independent.\r\nMost important here is that **you empower us in a safe and independent way**!\r\n\r\nI therefore kindly urge you to revise your stance on this topic.\r\n\r\nThank you.\r\n\r\n\r\nAs this thread should evaluate possible solutions and their technical integration I urge anyone participating to follow https://en.wikipedia.org/wiki/Wikipedia:Rational_debate aside of the [code of conduct](https://github.com/mozilla/standards-positions/blob/871e866a7683d75f6458d23d5183468847a8fe2f/CODE_OF_CONDUCT.md) and [Mozilla guidelines ](https://github.com/mozilla/standards-positions/blob/871e866a7683d75f6458d23d5183468847a8fe2f/CONTRIBUTING.md) and keep this thread solution oriented. The worst would be another closure.",
+"state": "OPEN",
+"state_reason": "REOPENED",
+"created": "2022-09-06T17:47:55Z",
+"updated": "2026-03-04T23:29:55Z",
+"closed": null,
+"author": "NODeeJay",
+"labels": [
+"duplicate"
+],
+"assignees": [],
+"participants": [
+"tantek",
+"bgrins",
+"zcorpan",
+"bholley",
+"scheib",
+"tanriol",
+"agibson2",
+"mcarbonneaux",
+"hafta",
+"Merlin04",
+"nondebug",
+"NuclearPhoenixx",
+"aerkiaga",
+"dommilosz",
+"Craftzman7",
+"NODeeJay"
+],
+"project_item": null,
+"status": null,
+"comment_count": 17,
+"comments": [
+{
+"author": "Merlin04",
+"at": "2023-07-13T20:04:39Z",
+"body": "moving my comment to here from the duplicate issue I inadvertently created:\r\n\r\nWeb MIDI [has been implemented](https://bugzilla.mozilla.org/show_bug.cgi?id=836897) for around 7 months now, and it's an API which carries very similar security implications to Web Serial (unrestricted communications with arbitrary hardware devices over a specific channel, of which implications are difficult to communicate to users). The Firefox Web MIDI implementation's solution of add-on gating solves this problem by presenting a flow which (simplifying here) conveys a similar granting of access as one would give when installing software, thus adequately getting informed consent from the user.\r\n\r\nWith this solu",
+"url": "https://github.com/mozilla/standards-positions/issues/687#issuecomment-1634833530"
+},
+{
+"author": "mcarbonneaux",
+"at": "2023-07-25T21:22:42Z",
+"body": "> Would love a discussion at TPAC next week on this topic. I've proposed a [breakout session](https://www.w3.org/wiki/TPAC/2022/SessionIdeas#Device_APIs_.28Bluetooth.2C_HID.2C_Serial.2C_USB.29). [Edit Sep19:] [Presentation slides](https://goo.gle/tpac2022-device-apis).\r\n\r\ngood slides  !\r\n\r\n@scheib what the return of the discution ?\r\n\r\naffectively i think is more secure to access to serial port from web browser because of the way of the browser while prompt you about what serial port you need to access (plus on site basis and eventualy each time you need to access), than native application that have the ability after they are installed to access to all the serial port of the machine at any ti",
+"url": "https://github.com/mozilla/standards-positions/issues/687#issuecomment-1650580434"
+},
+{
+"author": "agibson2",
+"at": "2023-08-01T20:27:56Z",
+"body": "I have seen this used twice in the recent weeks that I had to use Chrome for.  One interfaces to bluetooth serial for a soldering iron to show status, tip temperature over time, etc.  The other is a configuration for an Electronic Speed Control that seems to just use webserial where you configure it from a website.  This is becoming a pretty common need for stuff that I am dealing with.\r\n\r\nI hope that it does get considered.  There should definitely be some security prompts to let people know something is trying to get serial port access.  Someone could have some devices hooked up to their system that they would not want some website to start messing with it for safety reasons.  Settings on ",
+"url": "https://github.com/mozilla/standards-positions/issues/687#issuecomment-1661042775"
+},
+{
+"author": "dommilosz",
+"at": "2023-12-25T12:15:42Z",
+"body": "I think there is a very real need for it. I often need to use chrome for applications like this. Also chrome has quite monopoly on browser market and it works well there. If we are concerned about unaware user, who don't know the risks it can be implemented as hidden feature until proper security guards are implemented. For example it could be a setting in about:config. ",
+"url": "https://github.com/mozilla/standards-positions/issues/687#issuecomment-1868958515"
+},
+{
+"author": "tanriol",
+"at": "2023-12-25T12:57:35Z",
+"body": "@bholley Has anything been shared on this topic that would be worth quoting/linking here?\r\n\r\n> Over the past year or so, we've been experimenting as time permits with various approaches to improve the safety of inherently-powerful APIs, in line with the [Web Vision](https://www.mozilla.org/en-US/about/webvision) document we published earlier this year. We've prototyped a few different designs for this with WebMIDI, and while that project is still in progress, it seems to be converging on something workable.\r\n> \r\n> We haven't yet made any decisions about extending this approach to other APIs, but it's certainly something we plan to consider as we evaluate the outcomes of the WebMIDI experimen",
+"url": "https://github.com/mozilla/standards-positions/issues/687#issuecomment-1868974087"
+},
+{
+"author": "bholley",
+"at": "2024-01-05T19:27:39Z",
+"body": "At this point I think we're open to shipping WebSerial using the same add-on-gating mechanism as WebMIDI, provided we can come up with sufficiently understandable consent copy. It's not something we're able to resource right now but we'd take a patch. ",
+"url": "https://github.com/mozilla/standards-positions/issues/687#issuecomment-1879160383"
+},
+{
+"author": "scheib",
+"at": "2024-01-09T01:14:33Z",
+"body": "Great to hear this is an option!  It would be nice to see https://mozilla.github.io/standards-positions/#webserial updated to match this position.",
+"url": "https://github.com/mozilla/standards-positions/issues/687#issuecomment-1882113917"
+},
+{
+"author": "bgrins",
+"at": "2024-01-10T20:50:45Z",
+"body": "Updated the position in #959",
+"url": "https://github.com/mozilla/standards-positions/issues/687#issuecomment-1885711028"
+},
+{
+"author": "Craftzman7",
+"at": "2026-02-19T17:05:59Z",
+"body": "Well it looks like [we're getting somewhere](https://bugzilla.mozilla.org/show_bug.cgi?id=2010930)?",
+"url": "https://github.com/mozilla/standards-positions/issues/687#issuecomment-3928577686"
+},
+{
+"author": "hafta",
+"at": "2026-03-04T23:29:55Z",
+"body": "I propose changing the position from neutral to positive. Exposing Web Serial behind add-on gating allows for useful functionality with respect to configuring and operating devices, especially developer-focused devices like ESP32 which can be mitigated by browser controls (for example, limiting which device can be accessed.)\n\nSee existing issue https://github.com/mozilla/standards-positions/issues/720 regarding revisiting negative positions with add-on gating in mind.",
+"url": "https://github.com/mozilla/standards-positions/issues/687#issuecomment-4000954679"
+}
+]
+},
+"1018": {
+"number": 1018,
+"title": "Still on SerialPort API",
+"body": "<!-- Please use only the specification title as the issue title. -->\r\n\r\n## Request for Mozilla Position on an Emerging Web Specification\r\n\r\n* Specification title: Reconsidering the SerialPort API position\r\n* Specification or proposal URL (if available): https://developer.mozilla.org/en-US/docs/Web/API/SerialPort\r\n* Explainer URL (if available): interacting with the plethora of IoT and educational devices out there https://pyscript.com/@agiammarchi/micro-repl/latest\r\n* Proposal author(s) (`@`-mention GitHub accounts): \r\n* Caniuse.com URL (optional): \r\n* Bugzilla URL (optional): https://github.com/mozilla/standards-positions/issues/336\r\n* Mozillians who can provide input (optional): \r\n\r\n### Other information\r\n\r\nI am working on a project that needs to show kids to grown up users: *works in Chrome/ium* and as long standing Web supporter this is one of those cases it's not me being sloppy on cross-browser testing, it's rather other vendors making it impossible for the project I am working on to work on \"*the Web Platform*\".\r\n\r\nI have read almost the entirety of this thread https://github.com/mozilla/standards-positions/issues/336 and had no chance to chime in but, for what I've understood, the security concern is not different from a basic `<input type=\"file\">` any malicious Web page could present, any malicious Web page could influence the user about what to upload, so that any malicious Web page could also read both sensible data or configuration files from any user surfing that malicious Web page.\r\n\r\nWhile asking users to download an `.exe` file or anything like that instead which, once granted Admin privileges would harm them even more, seems like \"*the solution*\" to that thread, I am dealing with thousand of kids willing to just use their browsers to interact with \"*this or that SBC*\" so that when kids, or even adults, are using projects that are basing their default OS to Firefox, are incapable of learning, having fun, or create amazing projects out of the Web, which used to be a technology to enable everyone, not a technology to patronize and overload their ideas, or possibilities, instead.\r\n\r\nAccordingly, as much as I'd love to remove the \"*need for Chrome/ium*\" mandatory alert on whatever I am building, these are days nobody can even blame the Web developer behind anymore, as constraints are all over the major vendors responsibility.\r\n\r\nThis is true for all *MicroPython* boards as well as *Espruino* or others, the need for a particular Web extension to do something otherwise impossible out of extensions (which are just yet another extra user explict intent) makes literally no sense, when an extension just lands over an extra explicit user consent.\r\n\r\nI am hoping that anyone reading this *might* have a second thought, but I am unfortunately sure this will get blocked and closed at speed light instead, keeping the idea that Firefox is not what people think it is anymore, just another gatekeeping in the Web industry / reality \ud83d\ude25",
+"state": "CLOSED",
+"state_reason": "COMPLETED",
+"created": "2024-05-03T15:28:35Z",
+"updated": "2024-12-18T19:55:08Z",
+"closed": "2024-05-14T02:40:07Z",
+"author": "WebReflection",
+"labels": [
+"duplicate"
+],
+"assignees": [],
+"participants": [
+"WebReflection",
+"zcorpan",
+"bholley"
+],
+"project_item": null,
+"status": null,
+"comment_count": 3,
+"comments": [
+{
+"author": "bholley",
+"at": "2024-05-14T02:40:01Z",
+"body": "We've revised our position in #959. Basically, we'd take a patch if it meets our standards.",
+"url": "https://github.com/mozilla/standards-positions/issues/1018#issuecomment-2109168441"
+},
+{
+"author": "WebReflection",
+"at": "2024-05-14T09:22:29Z",
+"body": "@bholley that's a better resolution than expected so thatnks for the update and thank you all for re-thinking that position. About \"positions\" though, I won't be able (due work/life/kid balance) to file that PR but I hope some *FF* enthusiast will find the time to do so \ud83e\udd1e",
+"url": "https://github.com/mozilla/standards-positions/issues/1018#issuecomment-2109705815"
+},
+{
+"author": "bholley",
+"at": "2024-05-14T16:27:18Z",
+"body": "> @bholley that's a better resolution than expected so thatnks for the update and thank you all for re-thinking that position. About \"positions\" though, I won't be able (due work/life/kid balance) to file that PR but I hope some _FF_ enthusiast will find the time to do so \ud83e\udd1e\r\n\r\nNo worries, the position is already updated (that's the PR I linked to above).",
+"url": "https://github.com/mozilla/standards-positions/issues/1018#issuecomment-2110650463"
+}
+]
+},
+"721": {
+"number": 721,
+"title": "Request for re-opening the Request for position on JPEG XL",
+"body": "The Request for position on JPEG XL (https://github.com/mozilla/standards-positions/issues/522) was closed one year ago because it had \"passed the new information stage\".\r\n\r\nHowever, I think new information is available at this point, and it would be useful to add it to that thread. For example, the \"works across the workflow\" argument that was originally raised in a rather hypothetical/theoretical fashion, has now materialized in the form of, amongst others, Adobe, Serif, Krita, Gimp and darktable adding support for JPEG XL in their products.\r\nAlso, the proposal to add JPEG XL support has meanwhile been raised and is being discussed in the Mozilla Connect Community too: https://connect.mozilla.org/t5/ideas/support-jpeg-xl/idi-p/18433\r\n\r\nI think it would therefore make sense to re-open this thread so new information can be added, perhaps with a warning that it is not intended for general advocacy but only to report factually on new evidence of adoption and other new elements that are of interest for Mozilla to take a position.",
+"state": "CLOSED",
+"state_reason": "COMPLETED",
+"created": "2022-12-16T20:50:33Z",
+"updated": "2024-10-18T13:31:53Z",
+"closed": "2023-01-31T00:07:01Z",
+"author": "jonsneyers",
+"labels": [
+"duplicate"
+],
+"assignees": [],
+"participants": [
+"martinthomson",
+"zcorpan",
+"jonsneyers",
+"jthoward64"
+],
+"project_item": null,
+"status": null,
+"comment_count": 2,
+"comments": [
+{
+"author": "martinthomson",
+"at": "2023-01-31T00:07:01Z",
+"body": "Hi @jonsneyers, thanks for engaging here.  We've reached a conclusion on #522.  Unfortunately, the level of advocacy relative to the level of new information got unmanageable for us, so we had to lock it.\r\n\r\nWe do follow market adoption of different technologies and that does influence product decisions, but we try to limit the extent to which the positions we take here are affected by such dynamics.",
+"url": "https://github.com/mozilla/standards-positions/issues/721#issuecomment-1409548275"
+},
+{
+"author": "jthoward64",
+"at": "2023-12-19T17:29:49Z",
+"body": "> Hi @jonsneyers, thanks for engaging here. We've reached a conclusion on #522. Unfortunately, the level of advocacy relative to the level of new information got unmanageable for us, so we had to lock it.\r\n> \r\n> We do follow market adoption of different technologies and that does influence product decisions, but we try to limit the extent to which the positions we take here are affected by such dynamics.\r\n\r\n> So we don't see support for JPEG-XL as either good or bad for the Web. We might find it necessary to support the format *if usage becomes more widespread*, but that will be a product decision[1](https://github.com/mozilla/standards-positions/issues/522#user-content-fn-1-172a0635b7cb82d2",
+"url": "https://github.com/mozilla/standards-positions/issues/721#issuecomment-1863202819"
+}
+]
+},
+"1306": {
+"number": 1306,
+"title": "WebUSB rejection + summary statement is written by someone who doesn't understand website browser permissions are per-site (nor that users can safely have informed consent) - Please seek external evaluation",
+"body": "### Web-USB API:\n<img width=\"1489\" height=\"260\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/e8bd77ab-b962-4d9f-bfee-46620f3747c1\" />\n\n[\ud83d\udd17](https://mozilla.github.io/standards-positions/#webusb)\t[WebUSB API](https://wicg.github.io/webusb/)\tnegative\t\t\tProposal\t[#100](https://github.com/mozilla/standards-positions/issues/100) MDN [\ud83d\udcca](https://caniuse.com/webusb)\n#### _Description_\n_This document describes an API for securely providing access to Universal Serial Bus devices from web pages._\n#### _Rationale_\n_Because many USB devices are not designed to handle potentially-malicious interactions over the USB protocols and because those devices can have significant effects on the computer they're connected to, we believe that the security risks of exposing USB devices to the Web are too broad to risk exposing users to them or to explain properly to end users to obtain meaningful informed consent. It also poses risks that sites could use USB device identity or data stored on USB devices as tracking identifiers._\n\n## Counter argument:\n This is not factually correct if browsers respect users privacy and do not allow fingerprinting of USB devices without the site having permission for web-usb (per site permission like webcam/mic/file-api).\n\n It also carries the same risk as the serial api, file api, and many users would compare the webcam/microphone api's as of similar or greater risk. It's about informing the user, deny by default (always deny without user agreement + first ui interaction triggering connect), and per site permissions.\n\nThe equivalent utility to web-usb which is actually used in most educational / microcontroller development is the Serial API or web-serial, which has generally worse support (caniuse.com), yet is effectively similar in danger/merit, but scores a \"Neutral\" position from Mozilla (you don't like it but don't reject it). \nIt amuses me to know that android can get around some serial api issues by using the web-usb polyfill, even including new serial drivers if needed (bundled into the webkit app). The wonders of technology never cease (when not gate-kept)...\n\n### Web Serial API:\n<img width=\"924\" height=\"386\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/d4e1d500-d968-463a-8074-70e951283a72\" />\n\n[\ud83d\udd17](https://mozilla.github.io/standards-positions/#webserial)\t[Serial API](https://wicg.github.io/serial)\tneutral\t\t\tProposal\t[#336](https://github.com/mozilla/standards-positions/issues/336) bug [\ud83d\udcca](https://caniuse.com/mdn-api_serial)\n#### Description\nThe Serial API provides a way for websites to read and write from a serial device through script. Such an API would bridge the web and the physical world, by allowing documents to communicate with devices such as microcontrollers, 3D printers, and other serial devices. There is also a companion explainer document.\n#### Rationale\nDevices that offer serial interfaces often expose powerful, low-level functions over the interface with little or no authentication. Exposing that sort of capability to the web without adequate safeguards presents a significant threat to those devices. A user deliberately installing a site-specific add-on may be adequate, given sufficiently understandable consent copy.\n\n\n## Please get a qualified group of people to actually review the situations, so the millions of educational users (makeCode w/microbit, micropython, Arduino compatible boards, Espressif's ESP32 families, edublocks) and hobbyists and professionals can finally use Firefox again. More than that though, people still hold Mozilla/MDN and their statements in high regard, so getting past this would be great.",
+"state": "CLOSED",
+"state_reason": "COMPLETED",
+"created": "2025-10-16T23:49:48Z",
+"updated": "2026-02-21T14:31:13Z",
+"closed": "2025-10-20T05:45:54Z",
+"author": "tyeth",
+"labels": [],
+"assignees": [],
+"participants": [
+"martinthomson",
+"emilio",
+"tyeth",
+"Anutrix",
+"ChineseMarc",
+"Devnol",
+"webbeef"
+],
+"project_item": "PVTI_lADOAAIBxM4AlyuQzgf_ZNQ",
+"status": "Unscreened",
+"comment_count": 11,
+"comments": [
+{
+"author": "emilio",
+"at": "2025-10-17T06:47:24Z",
+"body": "(disclaimer: not involved with that decision)\n\nAs I recall it, the point is not that the permission wouldn't be per site, but that it's not easy to make an informed decision for a non-technical user. Please review all the existing discussions before just assuming that people that made the decision are not competent, and be respectful.\n\nNote that since then we shipped web MIDI with a different permission model, and that _could_ theoretically mitigate some of the concerns. There's #720 filed on that.",
+"url": "https://github.com/mozilla/standards-positions/issues/1306#issuecomment-3414113314"
+},
+{
+"author": "tyeth",
+"at": "2025-10-17T16:21:52Z",
+"body": "The inability to have informed consent for less technical users is not a good enough justification IMHO.\n\nIt's just equivalent to saying we can't [skill/effort] safely educate our users enough. \n\nA bit like cookies in the UK, the ICO was wrong to force it to website operators and not instead require browsers to educate users like they used to.\n[Totally ignoring the respecting of do-not-track browser settings]",
+"url": "https://github.com/mozilla/standards-positions/issues/1306#issuecomment-3416245708"
+},
+{
+"author": "webbeef",
+"at": "2025-10-17T16:42:39Z",
+"body": "Consent is not enough for these kind of APIs, because even very technical people can't actually know what will happen. You need a layer of *trust*, which is a different kind of signal. That's why I could decide to use WebUSB to flash an Android device from Google's own factory image flasher, but would not from a random website.\n\nThe argument of \"if it's not available on the web you're pushing people to use worse solutions like executable\" is an argument to lower the web differentiation in the wrong direction. We need to do better.",
+"url": "https://github.com/mozilla/standards-positions/issues/1306#issuecomment-3416324703"
+},
+{
+"author": "ChineseMarc",
+"at": "2025-10-17T23:52:32Z",
+"body": "Non-technical user sees \"This website doesn't support firefox, use modern browsers such as \\<name\\> \\<download button\\>\", user does as told and the site works perfectly and does the job.\n\nHow does that make the user safer by making said user to use browser(s) full of telemetry and tracking, while making user no safer when it comes to malicious actors possibly using such APIs (user possibly won't even know exist) for nefarious purposes?\n\nIf the answer is, it's not in product developed by us so we don't care then issues such as this one shouldn't be raised as the position on this issue will never be changed because of fundamental disagreements, and people shouldn't hope that the position will ",
+"url": "https://github.com/mozilla/standards-positions/issues/1306#issuecomment-3417531263"
+},
+{
+"author": "webbeef",
+"at": "2025-10-18T00:11:38Z",
+"body": "> the site works perfectly\n\nUntil it's a compromised site that causes issue. What then? Don't you see that this kind of API requires some integrity check of the code that runs and a trust layer?\n\nAnd indeed, I don't think it's productive to re-hash the same arguments over and over again. Things can change (see Emilio's comment about WebMIDI), but you are not proposing anything constructive.\n\n",
+"url": "https://github.com/mozilla/standards-positions/issues/1306#issuecomment-3417549834"
+},
+{
+"author": "martinthomson",
+"at": "2025-10-20T05:45:54Z",
+"body": "If you have new information, #720 is the right place to discuss these APIs.",
+"url": "https://github.com/mozilla/standards-positions/issues/1306#issuecomment-3420654279"
+},
+{
+"author": "tyeth",
+"at": "2025-10-20T16:05:34Z",
+"body": "Oh you mean the issue that recommends users install extensions? ~What a joke.~ Not a fan.\n\nTrust should be zero trust based, everything is refused. \n\nOnly when an escalation request (with informed [docs links] consent) is received does the trust then get requested/tested/established for that one site and one interaction. \n\nIf you don't think saving trust settings wise (it's not, but is convenient) then on each new interaction (to gain access to the usb/serial object) a browser-external UI interaction must be the trigger along with presenting a new temporary trust escalation request.\n\nLong lived trust/sessions are not trust/security but the illusion of such, and just a way to reduce cognitive",
+"url": "https://github.com/mozilla/standards-positions/issues/1306#issuecomment-3422753386"
+},
+{
+"author": "Devnol",
+"at": "2026-01-10T20:10:23Z",
+"body": "> > the site works perfectly\n> \n> Until it's a compromised site that causes issue. What then? Don't you see that this kind of API requires some integrity check of the code that runs and a trust layer?\n> \n> And indeed, I don't think it's productive to re-hash the same arguments over and over again. Things can change (see Emilio's comment about WebMIDI), but you are not proposing anything constructive.\n\nCorrect me if I'm wrong but what I understand from @ChineseMarc saying \"the site works perfectly\" isn't that it does what it's supposed to per se, but that it's free to do whatever it wants with the USB device because the (seemingly \"uninformed\") user did as the website said: They downloaded a ",
+"url": "https://github.com/mozilla/standards-positions/issues/1306#issuecomment-3733452711"
+},
+{
+"author": "Anutrix",
+"at": "2026-02-21T13:30:19Z",
+"body": "Protecting users from themselves is not a valid argument. Keep an option in settings somewhere confirmation if needed. Keep it neutral and Add-On Gated if needed like it is done for Serial API.\nImagine if setting custom homepage on a browser was disallowed because a user could easily set it to an unsafe site. That wouldn't be protection, it's just lack of choice or punishment for using Firefox.\n\nNot sure how long we need to wait before Mozilla decides to support power user or developers who require WebUSB.\n",
+"url": "https://github.com/mozilla/standards-positions/issues/1306#issuecomment-3938783257"
+},
+{
+"author": "tyeth",
+"at": "2026-02-21T14:31:13Z",
+"body": "Don't worry, it's in the pipeline...there are members of the team actively\r\nworking on it mentioned in reddit (for what that's worth). A little birdy\r\ntold me it was something like the CEO wanted to use firefox with one of\r\ntheir new web-serial/web-usb toys and couldn't so kicked the tires on it\ud83d\ude0a\r\nMight be a long road, but the end is in sight.\r\n\r\nOn Sat, 21 Feb 2026 at 13:30, Numan Zaheer Ahmed ***@***.***>\r\nwrote:\r\n\r\n> *Anutrix* left a comment (mozilla/standards-positions#1306)\r\n> <https://github.com/mozilla/standards-positions/issues/1306#issuecomment-3938783257>\r\n>\r\n> Protecting users from themselves is not a valid argument. Keep an option\r\n> in settings somewhere confirmation if needed. ",
+"url": "https://github.com/mozilla/standards-positions/issues/1306#issuecomment-3938878155"
+}
+]
+},
+"738": {
+"number": 738,
+"title": "Implement subset of File System Access API",
+"body": "## Request for Mozilla Position on an Emerging Web Specification\r\n\r\n* Specification Title: File System Access API\r\n* Specification or proposal URL:  https://fs.spec.whatwg.org/ and https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API\r\n* Caniuse.com URL (optional): https://caniuse.com/native-filesystem-api\r\n* Bugzilla URL (optional): https://bugzilla.mozilla.org/show_bug.cgi?id=1246236\r\n* Mozillians who can provide input (optional): \r\n\r\n### Other information\r\n\r\nThis was previously turned down (https://github.com/mozilla/standards-positions/issues/154 and https://github.com/Daasin/standards-positions/commit/91a1e8c2e8b3b16a9a166e86bf7fefb787f56502), however, I took notice of the \"Mozilla could be supportive of parts\" part. I think that this API could provide some specific very important functionality that is not harmful to the user. Please don't close this issue without reading it thoroughly and considering my case.\r\n\r\nI think the primary concern with the API is the `window.showDirectoryPicker()` method and the associated `FileSystemDirectoryHandle`. Selecting a directory would allow a website to create and delete any number of files within the directory, and I agree that this is very dangerous, and should not be implemented (or disabled by default).\r\n\r\nBut I believe that `window.showOpenFilePicker()` and `window.showSaveFilePicker()` and the associated `FileSystemFileHandle` don't create any increased risk to the user than already exists today. This allows only access to one file. Opening and saving files is already possible without this API, but it doesn't provide the same functionality. The only possible problem is a website writing to a file that the user opened, because opening a file traditionally only implies reading, but this can be solved by simply prompting the user. Of course a prompt wouldn't be necessary for files created with showSaveFilePicker, since that already implies writing.\r\n\r\nWhy I think this is important is because FileSystemFileHandle allows streamed downloads for client-generated files. Currently, doing this requires a hack with service workers, which are not accessible in private mode and require a worker script to be hosted (see https://github.com/jimmywarting/StreamSaver.js). Without this you're limited to downloading files that fit within memory. Additionally, it allows seeking within a file and truncating the file.\r\n\r\n**TL;DR:** Implement only `FileSystemFileHandle` and not `FileSystemDirectoryHandle`.",
+"state": "CLOSED",
+"state_reason": "COMPLETED",
+"created": "2023-01-21T22:48:11Z",
+"updated": "2025-12-01T15:28:44Z",
+"closed": "2023-01-24T04:04:47Z",
+"author": "Zipdox2",
+"labels": [
+"position: defer"
+],
+"assignees": [],
+"participants": [
+"martinthomson",
+"jesup",
+"jimmywarting",
+"kingIZZZY",
+"goldwaving",
+"Zipdox2"
+],
+"project_item": null,
+"status": null,
+"comment_count": 12,
+"comments": [
+{
+"author": "martinthomson",
+"at": "2023-01-24T04:04:47Z",
+"body": "Thanks for raising the issue, but after discussion, we've concluded that we need to defer this question.\r\n\r\nThe idea that there might be elements of the specification that are safe to use is not one that we've explored fully.  That said, we try to avoid taking specifications \u00e0 la carte, because that makes it harder to manage interoperability, especially when it results in more complicated feature detection.\r\n\r\nIf we were to consider this idea, we'd like to see a more thorough analysis.  That means a crisp definition of what is included, the implications of those choices, and more extensive work on understanding all of the implications (privacy, security, usability, alternatives, feature dete",
+"url": "https://github.com/mozilla/standards-positions/issues/738#issuecomment-1401367367"
+},
+{
+"author": "goldwaving",
+"at": "2023-09-27T18:57:16Z",
+"body": "Implementing some form of a File System Access API is inevitable.  There is no other way to efficiently modify large files or sets of files (audio, video, AI models, etc.).",
+"url": "https://github.com/mozilla/standards-positions/issues/738#issuecomment-1737923038"
+},
+{
+"author": "Zipdox2",
+"at": "2023-09-27T23:47:57Z",
+"body": "> Implementing some form of a File System Access API is inevitable. There is no other way to efficiently modify large files or sets of files (audio, video, AI models, etc.).\r\n\r\nI agree.\r\n",
+"url": "https://github.com/mozilla/standards-positions/issues/738#issuecomment-1738250066"
+},
+{
+"author": "Zipdox2",
+"at": "2025-01-19T03:34:30Z",
+"body": "Can we bring this up again?",
+"url": "https://github.com/mozilla/standards-positions/issues/738#issuecomment-2600578746"
+},
+{
+"author": "goldwaving",
+"at": "2025-01-21T12:31:52Z",
+"body": "> Thanks for raising the issue, but after discussion, we've concluded that we need to defer this question.\n\nThis has been deferred far too long.  It appears that the people in charge of making this decision have no understanding of how critical it is for developing a wider range of PWAs.  Audio editing, video editing, AI models all require access to massive amounts of data that cannot be efficiently accessed in Firefox.  Batch processing is impossible.  You don't understand how badly these work in Firefox and the poor user experience it gives.  Importing and exporting individual files is a waste of the user's time, storage space, etc.  When combining multiple audio and video files together, ",
+"url": "https://github.com/mozilla/standards-positions/issues/738#issuecomment-2604609076"
+},
+{
+"author": "Zipdox2",
+"at": "2025-01-21T16:31:25Z",
+"body": "I'm writing an add-on that needs to stream a download of a file that's generated in real-time. This may be possible using StreamSaver.js but that requires a hack with a service worker, which I'm not sure is possible in an add-on. Having showOpenFilePicker would make my life infinitely easier. Chrome has had it for 4 years.",
+"url": "https://github.com/mozilla/standards-positions/issues/738#issuecomment-2605208626"
+},
+{
+"author": "Zipdox2",
+"at": "2025-02-06T17:23:04Z",
+"body": "@martinthomson ",
+"url": "https://github.com/mozilla/standards-positions/issues/738#issuecomment-2640527427"
+},
+{
+"author": "kingIZZZY",
+"at": "2025-11-30T10:19:57Z",
+"body": "+1 need `window.showSaveFilePicker()` for all browsers \ud83d\ude4f",
+"url": "https://github.com/mozilla/standards-positions/issues/738#issuecomment-3592428375"
+},
+{
+"author": "jesup",
+"at": "2025-12-01T14:34:34Z",
+"body": "To reiterate what Martin said in Jan 2023, the right way to move forward on this is to push for a concrete specification that's safe for users in the WHATWG process.  This has been done before - OPFS is (largely) a subset of the File System API that's safe and allows high-performance reading and writing of local files, though in a sandbox, not the general filesystem.",
+"url": "https://github.com/mozilla/standards-positions/issues/738#issuecomment-3596867443"
+},
+{
+"author": "Zipdox2",
+"at": "2025-12-01T15:28:44Z",
+"body": "OPFS is very useful, and I do use it, but it would require using twice as much storage space to save a single file. Let's suppose I'm developing an encrypted file sharing site with client side decryption, and I use OPFS. A user downloads a 100GB file. This file first gets written to OPFS. Once that's complete, I use getFile() and URL.createObjectURL() and download the file. This eats up another 100GB of storage space. Now it's using 200GB. Only once the download is complete can I remove the OPFS file. See the problem?\n\nAs for a new specification in the WHATWG process, there have been multiple proposals (https://github.com/whatwg/html/issues/4148 and https://github.com/WICG/proposals/issues/1",
+"url": "https://github.com/mozilla/standards-positions/issues/738#issuecomment-3597193579"
+}
+]
+},
+"720": {
+"number": 720,
+"title": "Revisiting negative positions through Add-On Gating",
+"body": "With Add-On Gating available in Firefox 108 and WebMIDI being the pioneer extension that's add-on gated:\r\n\r\nIs there a (or: What is the) procedure to re-open negative positions as add-on gated? Is there a line established between \"can be add-on gated\" and \"not even with gates\" (other than that someone would need to do the implementation work)?\r\n\r\nIt might be convenient to gather that information (initially here, eventually in the README\r\n) before people come in storming to their old threads and ask in each of them, without a concrete procedure or criteria. (I was very tempted to rush to #95, but it's probably better to approach that with structure).",
+"state": "OPEN",
+"state_reason": null,
+"created": "2022-12-13T15:17:45Z",
+"updated": "2025-10-20T16:10:43Z",
+"closed": null,
+"author": "chrysn",
+"labels": [],
+"assignees": [],
+"participants": [
+"reillyeon",
+"beriberikix",
+"evilpie",
+"bholley",
+"chrysn",
+"pluma",
+"webprofusion-chrisc",
+"blalasaadri",
+"tyeth",
+"FroggMaster",
+"carrierfry",
+"nyabinary"
+],
+"project_item": "PVTI_lADOAAIBxM4AlyuQzgRi4bk",
+"status": "Unscreened",
+"comment_count": 16,
+"comments": [
+{
+"author": "beriberikix",
+"at": "2024-05-16T12:46:40Z",
+"body": "Is there a good overview on add-on-gated APIs in Firefox? I'd like to send someone so that they understand how they work and any specifics around their implementation.",
+"url": "https://github.com/mozilla/standards-positions/issues/720#issuecomment-2115158925"
+},
+{
+"author": "bholley",
+"at": "2024-05-17T17:47:04Z",
+"body": "@beriberikix They are intended to be transparent to developers \u2014 the add-on is auto-generated, and is basically a different UX metaphor in place of permission prompts. Sites that use gated APIs don't need to do anything special for Firefox.\r\n\r\nThe user-facing documentation (which is surfaced as a \"learn more\" link in the install flow) is [here](https://support.mozilla.org/en-US/kb/site-permission-add-ons?as=u&utm_source=inproduct).",
+"url": "https://github.com/mozilla/standards-positions/issues/720#issuecomment-2118110372"
+},
+{
+"author": "reillyeon",
+"at": "2024-05-20T18:26:19Z",
+"body": "Given the revised position on Web Serial is Mozilla similarly open to implementations of WebHID, WebUSB or Web Bluetooth as add-on-gated APIs?",
+"url": "https://github.com/mozilla/standards-positions/issues/720#issuecomment-2120978254"
+},
+{
+"author": "bholley",
+"at": "2024-05-20T23:36:10Z",
+"body": "> Given the revised position on Web Serial is Mozilla similarly open to implementations of WebHID, WebUSB or Web Bluetooth as add-on-gated APIs?\r\n\r\nNot at this time. Those APIs reach a much wider, more heterogeneous, and less-developer-oriented set of devices. In principle I think we could consider them in more restricted scenarios \u2014 such as for devices that explicitly advertise themselves as usable from the web \u2014 but we haven\u2019t really looked into it.",
+"url": "https://github.com/mozilla/standards-positions/issues/720#issuecomment-2121405426"
+},
+{
+"author": "FroggMaster",
+"at": "2024-06-08T16:38:14Z",
+"body": "> > Given the revised position on Web Serial is Mozilla similarly open to implementations of WebHID, WebUSB or Web Bluetooth as add-on-gated APIs?\r\n> \r\n> Not at this time. Those APIs reach a much wider, more heterogeneous, and less-developer-oriented set of devices. In principle I think we could consider them in more restricted scenarios \u2014 such as for devices that explicitly advertise themselves as usable from the web \u2014 but we haven\u2019t really looked into it.\r\n\r\nI'm eagerly following this GitHub issue for the time that Mozilla begins considering Web Bluetooth. It was extremely disappointing to have to stop my development for the extension that would allow me to use my Bluetooth enabled dice fo",
+"url": "https://github.com/mozilla/standards-positions/issues/720#issuecomment-2156097859"
+},
+{
+"author": "carrierfry",
+"at": "2024-08-06T20:49:05Z",
+"body": "I am in the same boat as @FroggMaster. I want to bring my chrome extension for Bluetooth Dice over to Firefox but because of the missing Bluetooth Web API I can't. I am hopeful that this might be a solution in the future",
+"url": "https://github.com/mozilla/standards-positions/issues/720#issuecomment-2272125645"
+},
+{
+"author": "blalasaadri",
+"at": "2024-08-06T21:13:14Z",
+"body": "Joining @FroggMaster and @carrierfry in the \"Web Bluetooth for dice\" corner here. I totally get that allowing connections to Bluetooth devices is risky and understand why Mozilla decided not to implement the API as it was suggested. But if there were a safer way to add that support through Add-On Gating...",
+"url": "https://github.com/mozilla/standards-positions/issues/720#issuecomment-2272162400"
+},
+{
+"author": "nyabinary",
+"at": "2025-04-21T15:14:09Z",
+"body": "> > Given the revised position on Web Serial is Mozilla similarly open to implementations of WebHID, WebUSB or Web Bluetooth as add-on-gated APIs?\n> \n> Not at this time. Those APIs reach a much wider, more heterogeneous, and less-developer-oriented set of devices. In principle I think we could consider them in more restricted scenarios \u2014 such as for devices that explicitly advertise themselves as usable from the web \u2014 but we haven\u2019t really looked into it.\n\nBeen close to a year, any update on this?",
+"url": "https://github.com/mozilla/standards-positions/issues/720#issuecomment-2818728009"
+},
+{
+"author": "pluma",
+"at": "2025-10-08T08:26:21Z",
+"body": "> > Given the revised position on Web Serial is Mozilla similarly open to implementations of WebHID, WebUSB or Web Bluetooth as add-on-gated APIs?\n> \n> Not at this time. Those APIs reach a much wider, more heterogeneous, and less-developer-oriented set of devices. In principle I think we could consider them in more restricted scenarios \u2014 such as for devices that explicitly advertise themselves as usable from the web \u2014 but we haven\u2019t really looked into it.\n\nFor WebHID I think a reasonable compromise might be whitelisting based on usages, e.g. joysticks (which includes a wide range of game inputs other than what can be represented by the Gamepad API). But unless there's a genuine effort to wor",
+"url": "https://github.com/mozilla/standards-positions/issues/720#issuecomment-3380335095"
+},
+{
+"author": "tyeth",
+"at": "2025-10-20T16:09:35Z",
+"body": "I propose the Addon solution is effectively stating that the Mozilla permissions + trust model and UI/UX design is not capable of providing an informed consent dialog, and therefore is no longer fit for purpose, and should be re-evaluated / fixed, rather than suggest addons.\n\nSee https://github.com/mozilla/standards-positions/issues/1306#issuecomment-3422753386\n\nIt would be helpful to the community to see any stats on addon installations/usage for web-midi in firefox over the last 3years.",
+"url": "https://github.com/mozilla/standards-positions/issues/720#issuecomment-3422766756"
+}
+]
+},
+"906": {
+"number": 906,
+"title": "Web Environment Integrity API",
+"body": "<!-- Please use only the specification title as the issue title. -->\r\n\r\n## Request for Mozilla Position on an Emerging Web Specification\r\n\r\n* Specification title: Web Environment Integrity API\r\n* Specification or proposal URL (if available): https://rupertbenwiser.github.io/Web-Environment-Integrity/\r\n* Explainer URL (if available): https://github.com/RupertBenWiser/Web-Environment-Integrity/blob/main/explainer.md\r\n* Proposal author(s) (`@`-mention GitHub accounts): @RupertBenWiser\r\n* Caniuse.com URL (optional): \r\n* Bugzilla URL (optional): \r\n* Mozillians who can provide input (optional): \r\n\r\n### Other information\r\n\r\nUsers often depend on websites trusting the client environment they run in. This trust may assume that the client environment is honest about certain aspects of itself, keeps user data and intellectual property secure, and is transparent about whether or not a human is using it. This trust is the backbone of the open internet, critical for the safety of user data and for the sustainability of the website\u2019s business.",
+"state": "CLOSED",
+"state_reason": "COMPLETED",
+"created": "2023-10-14T20:40:38Z",
+"updated": "2024-10-21T13:16:44Z",
+"closed": "2023-10-14T20:48:13Z",
+"author": "MrBrain295",
+"labels": [
+"duplicate"
+],
+"assignees": [],
+"participants": [
+"zcorpan",
+"MrBrain295"
+],
+"project_item": null,
+"status": null,
+"comment_count": 1,
+"comments": [
+{
+"author": "MrBrain295",
+"at": "2023-10-14T20:48:13Z",
+"body": "Nevermid duplicate.",
+"url": "https://github.com/mozilla/standards-positions/issues/906#issuecomment-1763177003"
+}
+]
+},
+"336": {
+"number": 336,
+"title": "Serial API",
+"body": "## Request for Mozilla Position on an Emerging Web Specification\r\n\r\n* Specification Title: Serial API\r\n* Specification or proposal URL: https://wicg.github.io/serial/\r\n* Caniuse.com URL (optional): NA\r\n* Bugzilla URL (optional): https://bugzilla.mozilla.org/show_bug.cgi?id=webserial\r\n* Mozillians who can provide input (optional): @marcoscaceres \r\n\r\n### Other information\r\nAccording to https://github.com/WICG/admin/issues/108#issuecomment-626475273 \r\nthere is no input from Mozilla. I hope Mozilla does provide input as this spec would be a useful addition to moving the web forward.\r\n",
+"state": "CLOSED",
+"state_reason": "COMPLETED",
+"created": "2020-05-11T05:26:53Z",
+"updated": "2026-03-04T23:10:26Z",
+"closed": "2026-03-04T23:10:26Z",
+"author": "computersarecool",
+"labels": [
+"venue: W3C CG",
+"position: neutral"
+],
+"assignees": [],
+"participants": [
+"tantek",
+"martinthomson",
+"HenrikJoreteg",
+"mlyle",
+"bgrins",
+"tomayac",
+"reillyeon",
+"zcorpan",
+"dbaron",
+"gniezen",
+"marcoscaceres",
+"andreicristianpetcu",
+"fabricedesre",
+"bromagosa",
+"ekr",
+"thorrak",
+"crozone",
+"ocdtrekkie",
+"computersarecool",
+"mmiscool",
+"jamesturner246",
+"kgiori",
+"SuperUserNameMan",
+"sbrl",
+"NuclearPhoenixx",
+"NODeeJay"
+],
+"project_item": null,
+"status": null,
+"comment_count": 72,
+"comments": [
+{
+"author": "SuperUserNameMan",
+"at": "2022-07-31T08:25:32Z",
+"body": "Oh ok cool ...\r\n\r\nSo basically, maybe Firefox should be advertised this way instead :\r\n----\r\n![Screenshot 2022-07-31 at 10-22-28 Download the fastest Firefox ever](https://user-images.githubusercontent.com/9801802/182017318-7279b187-3cc1-4148-be09-1062199fd406.png)\r\n\r\n----\r\n\r\nBecause else, I wonder why dumb lazy people would bother installing Firefox (or even Google-Chrome) by themselves when they already have a default web-browser available on their Windows, MacOS or Android devices that perfectly does every dumb thing they already need to do on the web.\r\n\r\nWilling and being able to install Firefox seems a pretty over-complicated dumb thing to do for a dumb lazy web-surfer ... why in the he",
+"url": "https://github.com/mozilla/standards-positions/issues/336#issuecomment-1200376967"
+},
+{
+"author": "ocdtrekkie",
+"at": "2022-07-31T08:28:14Z",
+"body": "@SuperUserNameMan You sure put a lot of effort into flaunting your personal superiority over the security teams of *every single web browser developer that isn't an ad company*.",
+"url": "https://github.com/mozilla/standards-positions/issues/336#issuecomment-1200377391"
+},
+{
+"author": "mlyle",
+"at": "2022-07-31T08:46:33Z",
+"body": "@ocdtrekkie You put a lot of effort into personal attacks and selective mischaracterizations to troll on GitHub.",
+"url": "https://github.com/mozilla/standards-positions/issues/336#issuecomment-1200380092"
+},
+{
+"author": "NODeeJay",
+"at": "2022-07-31T11:34:03Z",
+"body": "Dear @ocdtrekkie, it is in my POV very sad how you jeopardized this still technical conversation. You ignore all good rules of a rational debate (https://en.wikipedia.org/wiki/Wikipedia:Rational_debate) including but not limited to:\r\n\r\n_ 1. \"[...] why Firefox is the wise choice for enterprise and general consumers [...]\" implies that all others are dumb & \"[...] So you wrote the bad software [...]\" just to name a few. \r\n_ 2. \"[...] This is kinda where you really went off the rails though: This tells me you don't know much about user interaction with technology, which like... you should if you're teaching microcontroller development in middle school. Please pay attention here, and let me help",
+"url": "https://github.com/mozilla/standards-positions/issues/336#issuecomment-1200406438"
+},
+{
+"author": "ocdtrekkie",
+"at": "2022-07-31T15:37:45Z",
+"body": "@NODeeJay Hardly, @mlyle came at the issue dismissively, with a complete lack of concern for security, and with the absolute bold arrogance to assume he knows better than Mozilla and Apple's combined security knowledge... because, well, it makes *his job easier*.\n\nI understand you also disagree with me, but that's not an excuse to pretend mlyle had technical reasons and I didn't. I explained practical real world attacks, and mlyle responded by simply saying he thinks asking users permission is adequate safety, even though it's... very plainly not.",
+"url": "https://github.com/mozilla/standards-positions/issues/336#issuecomment-1200448143"
+},
+{
+"author": "SuperUserNameMan",
+"at": "2022-07-31T15:58:49Z",
+"body": "Maybe that would be easier to understand and accept if we were given actual examples of security issues related to the Serial port API.\r\n\r\n- Does it happen often in Google Chrome ?\r\n- What kind of actual devices are connected to the serial ports of most Firefox users ?\r\n- Who still uses serial ports nowadays and for what purpose ?\r\n- Who's actually at risk ?\r\n- What kind sensitive devices would be connect to serial ports ?\r\n- And if a highly sensitive device is connected to a serial port, who would be inclined to take the risk to use the same computer to browse insecure parts of web ?",
+"url": "https://github.com/mozilla/standards-positions/issues/336#issuecomment-1200451616"
+},
+{
+"author": "mlyle",
+"at": "2022-07-31T17:29:09Z",
+"body": "> @NODeeJay Hardly, @mlyle came at the issue dismissively, with a complete lack of concern for security, and with the absolute bold arrogance to assume he knows better than Mozilla and Apple's combined security knowledge... because, well, it makes his job easier.\r\n\r\n@ocdtrekkie Obviously different vendors disagree, and you agree more with Firefox's current choice.  It's not a great way to proceed to denigrate the entire other side.  \r\n\r\nYou fired the opening salvo of mockery with your post in the thread and it's something that I've tried to avoid in talking to you-- showing you respect even as you refuse to do so for the people who disagree with you.  Mockingly explaining things to me does n",
+"url": "https://github.com/mozilla/standards-positions/issues/336#issuecomment-1200466826"
+},
+{
+"author": "ocdtrekkie",
+"at": "2022-07-31T18:27:28Z",
+"body": "@mlyle Well...\r\n\r\n> when you're talking to people that they may actually have some domain knowledge.\r\n\r\nYou may, but, to be honest, you really blew credibility out the window in your opening remarks. \"Asking the user whether to do it is pretty damn safe\" is a comment that really, absolutely is wholly ridiculous in itself, and I don't even know where to go from there. If this was the case, UAC would've entirely eliminated all malware on Windows platforms back when Vista came out.\r\n\r\n> it should work to make sure there is a reasonable, attainable path to meet the critical business or end-user need\r\n\r\nAnd indeed there is. There are two ways to do this I suggested without introducing a massive s",
+"url": "https://github.com/mozilla/standards-positions/issues/336#issuecomment-1200475718"
+},
+{
+"author": "mlyle",
+"at": "2022-07-31T18:29:36Z",
+"body": "@ocdtrekkie \r\n\r\n> You may, but, to be honest, you really blew credibility out the window in your opening remarks. \r\n\r\nYou still refuse to refrain from personal attacks.  Address the issue, not the person.",
+"url": "https://github.com/mozilla/standards-positions/issues/336#issuecomment-1200476015"
+},
+{
+"author": "bgrins",
+"at": "2022-07-31T18:44:00Z",
+"body": "I've locked the thread for now. Many of these recent comments are well outside of the participation guidelines at https://github.com/mozilla/standards-positions/blob/main/CONTRIBUTING.md#for-the-broader-community. At this point the conversation should be focused on any changes to the spec since the position was set.",
+"url": "https://github.com/mozilla/standards-positions/issues/336#issuecomment-1200478141"
+}
+]
+},
+"522": {
+"number": 522,
+"title": "JPEG XL",
+"body": "## Request for Mozilla Position on an Emerging Web Specification\r\n\r\n* Specification Title: JPEG XL Image Coding System\r\n* Specification or proposal URL:\r\n  * ISO standards: \r\n    * Part 1: https://www.iso.org/standard/77977.html\r\n    * Part 2: https://www.iso.org/standard/80617.html\r\n    * Part 3: https://www.iso.org/standard/80618.html\r\n    * Part 4: https://www.iso.org/standard/80619.html\r\n  * Project page: https://github.com/libjxl/libjxl\r\n* Caniuse.com URL (optional): https://caniuse.com/jpegxl\r\n* Bugzilla URL (optional): https://bugzil.la/jpeg-xl\r\n* Mozillians who can provide input (optional): \r\n\r\n### Other information\r\n\r\n[This is included in Nightly 90](https://bugzilla.mozilla.org/show_bug.cgi?id=1707590) but there hasn't been an active discussion about whether this is the right way to go.",
+"state": "CLOSED",
+"state_reason": "COMPLETED",
+"created": "2021-05-07T06:53:22Z",
+"updated": "2024-09-13T15:12:25Z",
+"closed": "2023-02-03T02:21:30Z",
+"author": "saschanaz",
+"labels": [
+"position: neutral"
+],
+"assignees": [],
+"participants": [
+"gnat",
+"martinthomson",
+"kornelski",
+"zcorpan",
+"bholley",
+"hsivonen",
+"gcp",
+"ekr",
+"annevk",
+"veluca93",
+"saschanaz",
+"erikandre",
+"baumanj",
+"Yay295",
+"jyrkialakuijala",
+"jonsneyers",
+"Pentaphon",
+"G2G2G2G"
+],
+"project_item": null,
+"status": null,
+"comment_count": 41,
+"comments": [
+{
+"author": "jonsneyers",
+"at": "2021-10-13T19:41:47Z",
+"body": "Forcing content negotiation seems like a really good idea to make it possible to retire formats once they become obsolete. With JPEG, PNG and GIF it will not ever be possible to really retire them (too much would break), but maybe for WebP and AVIF it is not too late to keep the option open of eventually retiring them \u2014 after all, at the moment content negotiation is still a necessity for them (even WebP is not really universally supported yet atm).\r\n\r\nThis is what the Accept header and the picture tag are made for.\r\n\r\nIf we want to avoid browser bloat, planning how to eventually retire old codecs is more important than blocking new codecs.\r\n\r\nAlso, accepting any codec/format that is accepte",
+"url": "https://github.com/mozilla/standards-positions/issues/522#issuecomment-942658117"
+},
+{
+"author": "Pentaphon",
+"at": "2021-10-13T20:15:44Z",
+"body": "> If we want to avoid browser bloat, planning how to eventually retire old codecs is more important than blocking new codecs.\r\n\r\nBy saying no to new codecs that simply aren't the very best, you avoid the problem of having to retire old codecs altogether. The root cause of having too many formats and \"browser bloat\" is that the community just lets formats be thrown at the wall to see what \"sticks\" and everybody has to clean up the mess down the road. \r\n\r\nThe entire community needs to come together and demand more from new formats before they can be supported. If your new format isn't the best, it should be consolidated with another format, like how VP9/10, Thor and Daala became AV1 or FLIF an",
+"url": "https://github.com/mozilla/standards-positions/issues/522#issuecomment-942685663"
+},
+{
+"author": "ekr",
+"at": "2021-10-13T20:23:30Z",
+"body": "This discussion is rapidly veering off topic. As I said above, from we should assume that AVIF is going to be part of the Web ecosystem going forward. If you have *new* reasons why Mozilla should come down in favor of also adding JPEG-XL, please make them. However, this is not the place for a generic discussion of the state of image formats on the Web.\r\n\r\n",
+"url": "https://github.com/mozilla/standards-positions/issues/522#issuecomment-942691592"
+},
+{
+"author": "jonsneyers",
+"at": "2021-10-14T07:36:29Z",
+"body": "Fair enough.\r\n\r\nWell, I don't particularly have _new_ reasons why Mozilla should come down in favor of adding JPEG XL, but I think the reasons mentioned above by experts from (amongst others) Facebook and Cloudflare should be convincing enough.\r\n\r\nTo summarize the main arguments in favor of adding JPEG XL:\r\n\r\n- **Compression performance**: For lossy compression: at the fidelity targets most relevant to the web (q60-q90), jxl is 10-30% better than avif. For (non-photographic) images where lossless compression is more useful (e.g. web comics, icons, emojis, logos), jxl is 10-20% better than webp (while avif is worse than png for such images).\r\n- **Deployable right now**: encode speed makes on-",
+"url": "https://github.com/mozilla/standards-positions/issues/522#issuecomment-943093934"
+},
+{
+"author": "G2G2G2G",
+"at": "2021-12-27T11:29:33Z",
+"body": "@baumanj \r\n> But they _do_ support AVIF if you have the official plugin installed: https://avif.io/blog/tutorials/use-avif-in-windows/#microsoftsupportsavif\r\n\r\nit's more of a bug than a feature, it works with SOME avif images in their software (including edge) adding anything that isn't in the video codec (like alpha channels or animated AVIF) breaks it. \r\n\r\nalso support JPEG XL in firefox already ffs",
+"url": "https://github.com/mozilla/standards-positions/issues/522#issuecomment-1001521329"
+},
+{
+"author": "gnat",
+"at": "2021-12-30T00:32:33Z",
+"body": "JPEG XL is a genuine \"one true format\", and i'll be switching all assets across all of my sites to it the moment support is turned on in Firefox and Chrome. I won't even wait for Webkit to play catchup.\r\n\r\nThe problems around lossless AVIF, with no resolution on the horizon, makes AVIF a non-starter for many: https://github.com/AOMediaCodec/av1-avif/issues/111",
+"url": "https://github.com/mozilla/standards-positions/issues/522#issuecomment-1002824913"
+},
+{
+"author": "G2G2G2G",
+"at": "2021-12-30T08:14:50Z",
+"body": "@gnat Yep, AVIF is a great replacement for... gif and all of the mp4's around the internet that pretend to be gif these days. Nothing else.. and definitely not a replacement for jpeg and png. JPEG XL is though. \r\n",
+"url": "https://github.com/mozilla/standards-positions/issues/522#issuecomment-1002919242"
+},
+{
+"author": "ekr",
+"at": "2021-12-30T16:50:11Z",
+"body": "I'm locking this conversation as it has passed the new information stage.",
+"url": "https://github.com/mozilla/standards-positions/issues/522#issuecomment-1003105610"
+},
+{
+"author": "martinthomson",
+"at": "2023-01-30T23:59:40Z",
+"body": "After a lot of consultation (and time, sorry), we've concluded that we are **neutral** on JPEG-XL.\r\n\r\nThere are two competing forces in play here that we need to acknowledge explicitly.  Adding new formats comes with a cost, not just to us (adding, securing, and maintaining code is non-trivial), but to the Web as a whole.  On the whole, having fewer formats is better for the Web as that limits the complexity of authoring and serving content.  We support multiple formats only to the extent that those formats address the needs of people and sites.\r\n\r\nWe might assess a format based on features that it provides and the overall performance of the format, which includes a range of factors includin",
+"url": "https://github.com/mozilla/standards-positions/issues/522#issuecomment-1409539985"
+},
+{
+"author": "bholley",
+"at": "2024-09-03T20:05:29Z",
+"body": "See #1064 for an update here.",
+"url": "https://github.com/mozilla/standards-positions/issues/522#issuecomment-2327339210"
+}
+]
+},
+"100": {
+"number": 100,
+"title": "WebUSB API",
+"body": "## Request for Mozilla Position on an Emerging Web Specification\r\n\r\n* Specification Title: WebUSB API\r\n* Specification or proposal URL: https://wicg.github.io/webusb/\r\n* Caniuse.com URL (optional): https://caniuse.com/#feat=webusb\r\n\r\n### Other information\r\n\r\n* WebKit Not Considering: https://webkit.org/status/#feature-webusb\r\n* TAG Review: https://github.com/w3ctag/design-reviews/issues/108",
+"state": "CLOSED",
+"state_reason": "COMPLETED",
+"created": "2018-08-02T03:47:49Z",
+"updated": "2024-10-18T12:50:09Z",
+"closed": "2019-11-11T08:27:50Z",
+"author": "Jxck",
+"labels": [
+"venue: W3C CG",
+"position: negative"
+],
+"assignees": [],
+"participants": [
+"dmitriid",
+"martinthomson",
+"aspiers",
+"karelbilek",
+"AntoineTurmel",
+"zcorpan",
+"esafwan",
+"dbaron",
+"Jxck",
+"wisniewskit",
+"marcoscaceres",
+"fabricedesre",
+"ekr",
+"annevk",
+"tobozo",
+"mash-graz",
+"nondebug",
+"bastian2001",
+"dev-nicolaos"
+],
+"project_item": null,
+"status": null,
+"comment_count": 47,
+"comments": [
+{
+"author": "tobozo",
+"at": "2023-03-26T13:31:24Z",
+"body": "\r\n![image](https://user-images.githubusercontent.com/1893754/227778939-c3fbf39b-356e-4fde-a7a9-5f1d098fea1e.png)\r\n\r\n\r\nEven though it's android and not a desktop OS, it looks like most users understand the implications of permissions:\r\n\r\n> [4.3](https://www.researchgate.net/publication/367216696_Stuck_in_the_Permissions_With_You_Developer_End-User_Perspectives_on_App_Permissions_Their_Privacy_Ramifications) (...) end-user participants viewed the location, photos, and storage permissions as sensitive with privacy ramifications (a lot or above: 68%, 62.8%, and 61.8%, respectively)\r\n\r\nAnd it's not surprising: a driver can understand the security and permissions of their vehicle without having to",
+"url": "https://github.com/mozilla/standards-positions/issues/100#issuecomment-1484097554"
+},
+{
+"author": "dmitriid",
+"at": "2023-03-26T13:44:41Z",
+"body": "> it looks like most users understand the implications of permissions:\r\n\r\nAmazing, really. The studies: \"A minority of users demonstrated awareness and understanding of permissions\" and \"only 6.1% of participants answered all comprehension questions correctly\" somehow is perverted to \"most users understand permissions\".\r\n\r\nThis is nothing short of amazing.\r\n\r\n> And it's not surprising: a driver \r\n\r\nhttps://en.wikipedia.org/wiki/Argument_from_analogy\r\n\r\n> I'll rephrase: what does Mozilla's stance imply exactly\r\n\r\nIt doesn't \"imply\" anything. It's loud and clear. The problem is you are willingly refusing to hear it, and imagine things that are not there while ignoring everything else.\r\n\r\n---\r\n",
+"url": "https://github.com/mozilla/standards-positions/issues/100#issuecomment-1484101541"
+},
+{
+"author": "bastian2001",
+"at": "2023-03-26T14:10:05Z",
+"body": "Since this discussion has moved to privacy rather than security concerns, my two cents: I don't see the problem. Never have I seen a website ask for permission to use a USB device that doesn't actually need it. I can see how enumerating USB devices without user consent can be a problem, but I don't see when a website would actually need that. The way that I know WebUSB works, is:\r\n1. JavaScript asks the browser to show a prompt to the user to select a USB device\r\n2. User selects a USB device and hits \"ok\"\r\n3. Website has control over this one USB device\r\nThe fact that the user has to select one specific USB device before the website can control it (i.e. the user has to do something and not j",
+"url": "https://github.com/mozilla/standards-positions/issues/100#issuecomment-1484107881"
+},
+{
+"author": "fabricedesre",
+"at": "2023-03-26T18:03:49Z",
+"body": "> Maybe someone can tell me, what security or privacy concerns they can see, as long as these (easy to fulfill) conditions are both met:\r\n\r\nYou still have no guarantee that the code served by the site won't damage your devices, because trusting the origin of the code doesn't mean you can trust the code itself (eg. if an attacker replaced it by something malicious). This is less a problem with regular web APIs that can't have destructive behavior thanks to the web sandbox.\r\n\r\nA better trust model for code is needed to enable these APIs, not just claims that \"it works because Google does it and users are smart enough\".",
+"url": "https://github.com/mozilla/standards-positions/issues/100#issuecomment-1484173877"
+},
+{
+"author": "bastian2001",
+"at": "2023-03-26T19:22:50Z",
+"body": "> trusting the origin of the code doesn't mean you can trust the code itself\r\n\r\nTrusting the origin means to me, that I trust the origin, so also the code that they give me (as long as it has not been tampered with). Just making this clear, but I think this is also not what you meant.\r\n\r\n> if an attacker replaced it by something malicious\r\n\r\nHTTPS only + same domain for those parts of the script that access the USB device, the same as with service workers, would work, right? \r\n\r\n> not just claims ...\r\n\r\nWhere did I claim that it works _because Google does it_? What I said is, that the user has to do _something other_ than just clicking ok for something bad to happen (they have to select a US",
+"url": "https://github.com/mozilla/standards-positions/issues/100#issuecomment-1484197374"
+},
+{
+"author": "fabricedesre",
+"at": "2023-03-26T21:51:47Z",
+"body": "> HTTPS only + same domain for those parts of the script that access the USB device, the same as with service workers, would work, right?\r\n\r\nNo, HTTPS only ensures that no tampering happened in transit. That doesn't give you any kind of guarantee about the code not being replaced at the source by a malicious version.\r\n",
+"url": "https://github.com/mozilla/standards-positions/issues/100#issuecomment-1484234629"
+},
+{
+"author": "dev-nicolaos",
+"at": "2023-03-27T06:26:05Z",
+"body": "Maybe we need to step back for a minute. I think the main tension in this thread boils down to...\r\n\r\n- USB access is a powerful feature and thus should require a high level of trust of any software that can make use of it. But...\r\n- There's a low level of confidence that most users can make an informed decision about when to allow software access to said powerful feature.\r\n\r\nAdditional valid concerns:\r\n\r\n- Some things users need to do simply require USB access. The existing approach is to download an executable which will have unlimited permissions, and is thus a larger attack vector than the web model where permissions can be allowed individually.\r\n- The common browser UX of presenting a no",
+"url": "https://github.com/mozilla/standards-positions/issues/100#issuecomment-1484568843"
+},
+{
+"author": "bastian2001",
+"at": "2023-03-27T08:03:15Z",
+"body": "> not being replaced at the source by a malicious version\r\n\r\n@fabricedesre I guess you are talking about signing the code? This is more than what most semi-famous software does, even for full blown programs/apps. Making this widely available could be expensive and throw off devs to only support Chrromium browsers\r\n\r\n> confidence that the user was making a reasonably informed decision\r\n\r\nIMO the fact that the user has to select one specific USB device already mitigates the \"just click ok\" problem. A warning on that selection screen is sufficient if you ask me.",
+"url": "https://github.com/mozilla/standards-positions/issues/100#issuecomment-1484684212"
+},
+{
+"author": "fabricedesre",
+"at": "2023-03-27T15:49:57Z",
+"body": "> @fabricedesre I guess you are talking about signing the code? This is more than what most semi-famous software does, even for full blown programs/apps. Making this widely available could be expensive and throw off devs to only support Chrromium browsers\r\n\r\nSigning code is one way to do it, but not the only one. Trusting a known hash of the code can be enough - the tricky part being to bootstrap the trust chain. I found this approach interesting: https://blog.cloudflare.com/cloudflare-verifies-code-whatsapp-web-serves-users/\r\n\r\n> IMO the fact that the user has to select one specific USB device already mitigates the \"just click ok\" problem. A warning on that selection screen is sufficient if",
+"url": "https://github.com/mozilla/standards-positions/issues/100#issuecomment-1485383081"
+},
+{
+"author": "martinthomson",
+"at": "2023-03-29T02:17:57Z",
+"body": "Thanks to everyone for the lively discussion, but I think that this has again gotten to the point where we need to take a pause.  For an issue like this, where the original request has been resolved, we try to keep discussion open in case new information arises, so we'll reopen this again in a little while.  For now, the discussion seem to have started to retread arguments that have already been made.",
+"url": "https://github.com/mozilla/standards-positions/issues/100#issuecomment-1487852701"
+}
+]
+},
+"154": {
+"number": 154,
+"title": "File System Access API",
+"body": "## Request for Mozilla Position on an Emerging Web Specification\r\n\r\n* Specification Title: Native File System API\r\n* Specification or proposal URL: https://wicg.github.io/file-system-access/ (https://github.com/WICG/file-system-access)\r\n* Caniuse.com URL (optional): \r\n* Bugzilla URL (optional): \r\n* Mozillians who can provide input (optional): \r\n\r\n### Other information\r\nBased on activity in this [Chromium bug](https://bugs.chromium.org/p/chromium/issues/detail?id=853326), Google seems to be actively working towards implementing this [draft spec](https://wicg.github.io/native-file-system/).\r\n\r\nThis spec is a follow-on to the Writable Files proposal, which Mozilla initially classified as *defer*, but the last comment in the position [issue](https://github.com/mozilla/standards-positions/issues/110) suggested a new issue be opened if there is \"new information such that reassessment is warranted\".\r\n",
+"state": "CLOSED",
+"state_reason": "COMPLETED",
+"created": "2019-04-25T17:36:35Z",
+"updated": "2024-09-13T15:14:57Z",
+"closed": "2021-06-25T14:47:17Z",
+"author": "mconca",
+"labels": [
+"venue: W3C CG",
+"position: negative"
+],
+"assignees": [],
+"participants": [
+"mkruisselbrink",
+"tantek",
+"martinthomson",
+"feross",
+"tomayac",
+"zcorpan",
+"dbaron",
+"kaizhu256",
+"fabricedesre",
+"ekr",
+"josephrocca",
+"annevk",
+"operutka",
+"BatmanAoD",
+"Akryum",
+"Jaifroid",
+"dwelle",
+"james-cnz",
+"fonsp",
+"kepta",
+"pschiffmann",
+"mystiquewolf",
+"NotizMe",
+"torshind",
+"mconca",
+"FunctionDJ"
+],
+"project_item": null,
+"status": null,
+"comment_count": 64,
+"comments": [
+{
+"author": "BatmanAoD",
+"at": "2021-10-27T15:00:19Z",
+"body": "The inability to use [vscode.dev](https://vscode.dev/) is another consequence of not supporting this API; like the Instagram use-case mentioned above, it will force more users off of Firefox.",
+"url": "https://github.com/mozilla/standards-positions/issues/154#issuecomment-953017045"
+},
+{
+"author": "mystiquewolf",
+"at": "2021-10-27T15:50:00Z",
+"body": "> The inability to use vscode.dev is another consequence of not supporting this API; like the Instagram use-case mentioned above, it will force more users off of Firefox.\r\n\r\nSo what's now, Google creates APIs on their own? Google is a standards body now?",
+"url": "https://github.com/mozilla/standards-positions/issues/154#issuecomment-953062513"
+},
+{
+"author": "Akryum",
+"at": "2021-10-27T15:58:44Z",
+"body": "Firefox doesn't provide an equivalent API to access your file system so running vscode.dev is not possible...",
+"url": "https://github.com/mozilla/standards-positions/issues/154#issuecomment-953070177"
+},
+{
+"author": "mystiquewolf",
+"at": "2021-10-27T16:11:16Z",
+"body": "As i read it there are security concerns. I also believe that Mozilla should propose more drafts for standartization in general.",
+"url": "https://github.com/mozilla/standards-positions/issues/154#issuecomment-953081478"
+},
+{
+"author": "BatmanAoD",
+"at": "2021-10-28T16:06:12Z",
+"body": "@mystiquewolf My comment is about market share, not about standards.\r\n\r\nYes, I understand that implementing non-standard Chrome features effectively turns Chrome into the standards. But that has to be weighed against the reality that the more features Chrome supports that Firefox doesn't, the less market share Firefox will have; without market share, Mozilla's stance on standardization will be effectively irrelevant.",
+"url": "https://github.com/mozilla/standards-positions/issues/154#issuecomment-953989385"
+},
+{
+"author": "mystiquewolf",
+"at": "2021-10-28T16:17:00Z",
+"body": "@BatmanAoD  So basically what you're saying is judge from your comment then Mozilla's stance is already irrelevant? They are required to implement \\*as it is\\* -> they have \\*no choice\\*? ",
+"url": "https://github.com/mozilla/standards-positions/issues/154#issuecomment-953998499"
+},
+{
+"author": "BatmanAoD",
+"at": "2021-10-28T16:18:40Z",
+"body": "@mystiquewolf No. If I had meant that, I would have said so. I've edited `is` in the final sentence of my previous comment to `will be` to reflect this.",
+"url": "https://github.com/mozilla/standards-positions/issues/154#issuecomment-953999787"
+},
+{
+"author": "mystiquewolf",
+"at": "2021-10-28T16:23:14Z",
+"body": "@BatmanAoD  Not trying to be rude, but i don't really see a difference between:\r\n* You have to implement!!! You'll become irrelevant at standards!!!\r\n* You have to implement. It's a standard.\r\n\r\nEither is is a standard and it is required or it is not a standard and is not required. That's the proper way, anything else is monopol, which should be dealt in court IMO.",
+"url": "https://github.com/mozilla/standards-positions/issues/154#issuecomment-954003457"
+},
+{
+"author": "Jaifroid",
+"at": "2021-10-28T16:35:44Z",
+"body": "I think everyone here understands that it will not be good for the browser ecosystem if Chromium effectively becomes the new Internet Explorer (of the 1990s), marching ahead with non-standard APIs. The frustration is that Mozilla devs seem to be so entrenched in the box of \"any file access is a security breach\" that genuinely useful and well implemented draft APIs are getting almost summarily dismissed. This is a real problem, and it's actually contributing to reinforcing the monopoly.\r\n\r\nWe realize it looks like a double-bind, or Catch 22, for Mozilla. However, many of us think there is another way. We desperately want to see Mozilla help to make these APIs into good standards (and then we'",
+"url": "https://github.com/mozilla/standards-positions/issues/154#issuecomment-954013063"
+},
+{
+"author": "tantek",
+"at": "2021-10-28T19:39:53Z",
+"body": "Locking this conversation. We asked folks a week ago ([https://github.com/mozilla/standards-positions/issues/154#issuecomment-948985820](https://github.com/mozilla/standards-positions/issues/154#issuecomment-948985820)) to keep it on topic and subsequent comments for the most part have not, nor have they added any new technical information (advocacy, \"implications\", \"consequences\", SDO processes, and market dynamics are not; there are other venues for those things, and if you\u2019re not sure where, start with your own blog).\n\n(Originally published at: https://tantek.com/2021/301/t1/)",
+"url": "https://github.com/mozilla/standards-positions/issues/154#issuecomment-954144376"
+}
+]
+},
+"95": {
+"number": 95,
+"title": "Web Bluetooth",
+"body": "## Request for Mozilla Position on an Emerging Web Specification\r\n\r\n* Specification Title: Web Bluetooth\r\n* Specification or proposal URL: https://webbluetoothcg.github.io/web-bluetooth/\r\n* Caniuse.com URL (optional): https://caniuse.com/#search=bluetooth\r\n* Bugzilla URL (optional): https://bugzilla.mozilla.org/show_bug.cgi?id=674737\r\n* Mozillians who can provide input (optional): \r\n* Webkit bug: https://bugs.webkit.org/show_bug.cgi?id=101034\r\n\r\n### Other information\r\n\r\nOut in the wild, devrel folks get peppered constantly with questions about WebBluetooth support. We are also getting this question from the communities and projects working on distributed/decentralized web recently, due to recent Bluetooth mesh spec release.\r\n\r\nIt would be really helpful if we had a position statement here on the repo, that we can point people at.\r\n\r\n\r\n",
+"state": "CLOSED",
+"state_reason": "COMPLETED",
+"created": "2018-07-06T17:11:53Z",
+"updated": "2025-05-09T03:43:46Z",
+"closed": "2020-06-12T05:32:20Z",
+"author": "autonome",
+"labels": [
+"venue: W3C CG",
+"position: negative"
+],
+"assignees": [],
+"participants": [
+"qdot",
+"autonome",
+"martinthomson",
+"reillyeon",
+"rjcorwin",
+"tomrittervg",
+"zcorpan",
+"dbaron",
+"chrysn",
+"fabricedesre",
+"ekr",
+"nschonni",
+"mrquincle",
+"andrewgoz",
+"webprofusion-chrisc",
+"johnrbnsn",
+"adamroach",
+"DemiMarie",
+"dmikester1",
+"danburonline",
+"Pandapip1",
+"minionflo",
+"builder555"
+],
+"project_item": null,
+"status": null,
+"comment_count": 46,
+"comments": [
+{
+"author": "danburonline",
+"at": "2024-02-21T11:55:58Z",
+"body": "Especially after the recent news of Apple trying to reduce the functionality of the web platform, it is even more evident that we need to fight for the web and bring in more powerful standards and APIs into all major browser vendors. I highly agree with @Pandapip1's arguments, and I'm curious about what is happening at Mozilla regarding modern web APIs like Web Bluetooth.",
+"url": "https://github.com/mozilla/standards-positions/issues/95#issuecomment-1956492251"
+},
+{
+"author": "adamroach",
+"at": "2024-02-21T12:13:10Z",
+"body": "> On windows, all you need to do is click a download link, and click on the downloaded file. No permission prompts; full user access.\r\n\r\n???\r\n\r\n![3yXJM](https://github.com/mozilla/standards-positions/assets/2974852/9ea8e4ae-e3b3-4a96-8001-b808cf01ae8e)\r\n",
+"url": "https://github.com/mozilla/standards-positions/issues/95#issuecomment-1956520087"
+},
+{
+"author": "Pandapip1",
+"at": "2024-02-21T15:11:34Z",
+"body": "> ???\r\n\r\nFair enough. I forgot I had that prompt turned off while I was still using windows. That does give me an idea though...\r\n\r\nUnironically, would a full-page (as to avoid webpages using phishing tactics to get users to bypass the warning) \"Firefox protected your computer\" popup with a \"Decline\" / \"more info\" adequately convey the severity of the permissions being granted?",
+"url": "https://github.com/mozilla/standards-positions/issues/95#issuecomment-1956887773"
+},
+{
+"author": "builder555",
+"at": "2024-07-21T12:46:16Z",
+"body": "> If Mozilla's position was \"it's too challenging to convey the risks of exposing those APIs to users,\" then I would be more understanding, and the community could have a productive discussion on a prompt. But I'd argue that claiming impossibility is incorrect.\r\n\r\n100% agreed. Yes, it's difficult to implement it safely, doesn't mean it's impossible. If we used the same logic for every step in web development, websites would not have any interactivity or file downloads at all. \r\n\r\nLet's figure out how to do it properly and provide users with better functionality than the native apps.",
+"url": "https://github.com/mozilla/standards-positions/issues/95#issuecomment-2241599044"
+},
+{
+"author": "minionflo",
+"at": "2024-12-15T21:44:49Z",
+"body": "not implementing stuff like this is also keeping power users/developers from using firefox",
+"url": "https://github.com/mozilla/standards-positions/issues/95#issuecomment-2544112097"
+},
+{
+"author": "DemiMarie",
+"at": "2025-03-11T01:20:42Z",
+"body": "Personally, I think the best way to implement WebUSB, Web Bluetooth, and other interfaces is with a high-level, semantic API that requires explicit opt-in from the device side, potentially with cryptographic attestation and external review of the firmware to validate that it is secure against malicious code connecting to it.",
+"url": "https://github.com/mozilla/standards-positions/issues/95#issuecomment-2712245662"
+},
+{
+"author": "Pandapip1",
+"at": "2025-03-11T04:11:58Z",
+"body": "> Personally, I think the best way to implement WebUSB, Web Bluetooth, and other interfaces is with a high-level, semantic API that requires explicit opt-in from the device side, potentially with cryptographic attestation and external review of the firmware to validate that it is secure against malicious code connecting to it.\n\nThat ship has already sailed; the time to make those comments was when these standards were being developed.\n\nAdditionally, this proposal of yours has problems. A main use case for WebSerial (which is basically the only reason I have Chromium installed alongside Firefox) is to flash devices with custom firmware. There's no good way to make this kind of authentication ",
+"url": "https://github.com/mozilla/standards-positions/issues/95#issuecomment-2712555898"
+},
+{
+"author": "minionflo",
+"at": "2025-05-07T23:55:01Z",
+"body": "and implementing it behind a about:config flag (atleast for now)?\nThat would allow power users and developers to use it but keep the normal user protected.",
+"url": "https://github.com/mozilla/standards-positions/issues/95#issuecomment-2860847162"
+},
+{
+"author": "Pandapip1",
+"at": "2025-05-08T01:40:51Z",
+"body": "> and implementing it behind a about:config flag (atleast for now)?\n\nThe default `about:config` warning seems like the adequately scary warning I wanted for this. I would be in favor of this.\n\n![Image](https://github.com/user-attachments/assets/723c3b66-8151-434b-988b-45ace7abd7de)",
+"url": "https://github.com/mozilla/standards-positions/issues/95#issuecomment-2861166350"
+},
+{
+"author": "DemiMarie",
+"at": "2025-05-09T03:43:45Z",
+"body": "> > Personally, I think the best way to implement WebUSB, Web Bluetooth, and other interfaces is with a high-level, semantic API that requires explicit opt-in from the device side, potentially with cryptographic attestation and external review of the firmware to validate that it is secure against malicious code connecting to it.\n> \n> That ship has already sailed; the time to make those comments was when these standards were being developed.\n\nI still think it is a useful principle for future web-exposed APIs that allow hardware interactions.\n",
+"url": "https://github.com/mozilla/standards-positions/issues/95#issuecomment-2865001802"
+}
+]
+},
+"852": {
+"number": 852,
+"title": "Web Environment Integrity API",
+"body": "## Request for Mozilla Position on an Emerging Web Specification\r\n\r\n* Specification Title: Web Environment Integrity API\r\n* Specification or proposal URL (if available): https://rupertbenwiser.github.io/Web-Environment-Integrity/ (spec), https://github.com/RupertBenWiser/Web-Environment-Integrity/ (repo)\r\n* Explainer URL (if available): https://github.com/RupertBenWiser/Web-Environment-Integrity/blob/main/explainer.md\r\n\r\n### Other information\r\n\r\nChromium's propotype is currently relying on Play Integrity (https://developer.android.com/google/play/integrity), but the specification is clear that it is vendor-neutral. However, I have personal concerns since that while EME in theory is vendor-neutral, in practice there is only three vendors which are widely-recognized: Google Widevine (which is used by Firefox in most platforms plus in Chrome and Android), Microsoft PlayReady (used by Microsoft Edge and Windows plus in some Android devices alongside Widevine), and Apple FairPlay (used in Safari and everything Apple).\r\n\r\nIt is reasonable that the current situation in EME would translate into this specification. This may hinder users of other browsers since while in theory websites would just try to verify the identity by other means in practice this would lead to websites requiring pre-approved browsers.",
+"state": "CLOSED",
+"state_reason": "COMPLETED",
+"created": "2023-07-21T11:45:54Z",
+"updated": "2024-10-18T12:53:11Z",
+"closed": "2023-07-25T03:21:01Z",
+"author": "gacelperfinian",
+"labels": [
+"position: negative"
+],
+"assignees": [],
+"participants": [
+"tantek",
+"abdul",
+"martinthomson",
+"bgrins",
+"teh-maxh",
+"JohnCoconut",
+"pglpm",
+"gacelperfinian",
+"pax-k",
+"Zipdox2"
+],
+"project_item": null,
+"status": null,
+"comment_count": 10,
+"comments": [
+{
+"author": "teh-maxh",
+"at": "2023-07-21T17:16:04Z",
+"body": "While such a \"feature\" would be great marketing for Firefox, I still think it should be opposed.",
+"url": "https://github.com/mozilla/standards-positions/issues/852#issuecomment-1646013745"
+},
+{
+"author": "Zipdox2",
+"at": "2023-07-22T19:26:12Z",
+"body": "This API offers nothing to the end user, and can only be used to restrict the user. It is not in users' interests to implement it.\r\n\r\nFurthermore, this specification is vague and the underlying mechanism is unclear.",
+"url": "https://github.com/mozilla/standards-positions/issues/852#issuecomment-1646655354"
+},
+{
+"author": "bgrins",
+"at": "2023-07-25T01:09:57Z",
+"body": "Mozilla opposes this proposal because it contradicts our principles and vision for the Web.\r\n\r\nAny browser, server, or publisher that implements common standards is [automatically part of the Web](https://www.mozilla.org/en-US/about/webvision/full/#openness):\r\n\r\n> Standards themselves aim to avoid assumptions about the underlying hardware or software that might restrict where they can be deployed. This means that no single party decides which form-factors, devices, operating systems, and browsers may access the Web. It gives people more choices, and thus more avenues to overcome personal obstacles to access. Choices in assistive technology, localization, form-factor, and price, combined with",
+"url": "https://github.com/mozilla/standards-positions/issues/852#issuecomment-1648820747"
+},
+{
+"author": "tantek",
+"at": "2023-07-25T03:20:32Z",
+"body": "Thanks [@bgrins](https://github.com/bgrins) for this summary write-up. Per this analysis I\u2019m going to label our position on this proposal as negative.\n\nSince this is a proposal in a personal GitHub repo, and not standards track work nor in any open incubation group, there is no need for a dashboard entry. Closing accordingly.\n\n(Originally published at: https://tantek.com/2023/205/t1/)",
+"url": "https://github.com/mozilla/standards-positions/issues/852#issuecomment-1648989262"
+},
+{
+"author": "pglpm",
+"at": "2023-07-25T10:42:57Z",
+"body": "The [API proposal](https://github.com/RupertBenWiser/Web-Environment-Integrity/blob/main/explainer.md) mentions the \"user\" a lot. Has anyone actually *asked real users* and collected any statistics?\r\n\r\n**I actually am a user** and I **don't** want this nor do I find it useful. They shouldn't try to deceive me saying that this is \"for me\", when it actually isn't.",
+"url": "https://github.com/mozilla/standards-positions/issues/852#issuecomment-1649594034"
+},
+{
+"author": "pax-k",
+"at": "2023-07-25T11:54:01Z",
+"body": "So they actually borrow ideas from Decentralized Identifiers / Verifiable Credentials and want to force adoption by building this tech into the browser. Obviously Google's intent is to monopolize & profit, and less about \"privacy\", \"user security\", etc, which are just facade words.",
+"url": "https://github.com/mozilla/standards-positions/issues/852#issuecomment-1649687634"
+},
+{
+"author": "abdul",
+"at": "2023-07-25T14:14:51Z",
+"body": "> Mozilla opposes this proposal because it contradicts our principles and vision for the Web.\r\n> \r\n> Any browser, server, or publisher that implements common standards is [automatically part of the Web](https://www.mozilla.org/en-US/about/webvision/full/#openness):\r\n> \r\n> > Standards themselves aim to avoid assumptions about the underlying hardware or software that might restrict where they can be deployed. This means that no single party decides which form-factors, devices, operating systems, and browsers may access the Web. It gives people more choices, and thus more avenues to overcome personal obstacles to access. Choices in assistive technology, localization, form-factor, and price, com",
+"url": "https://github.com/mozilla/standards-positions/issues/852#issuecomment-1649928726"
+},
+{
+"author": "pglpm",
+"at": "2023-07-25T14:30:55Z",
+"body": "@abdul It might. Yet please let's fight. Every epoch is unique. And a fight not fought is automatically lost.",
+"url": "https://github.com/mozilla/standards-positions/issues/852#issuecomment-1649958672"
+},
+{
+"author": "JohnCoconut",
+"at": "2023-07-25T14:51:21Z",
+"body": "Though I've disagreed with Mozilla's decisions or directions in the past, today I am very grateful for Mozilla's objection towards \"Integrity API\". I couldn't imagine the future of web if proposal like this getting accepted and implemented.\r\n\r\nJust donated $100 to Mozilla.",
+"url": "https://github.com/mozilla/standards-positions/issues/852#issuecomment-1649993734"
+},
+{
+"author": "martinthomson",
+"at": "2023-07-25T15:24:43Z",
+"body": "Thanks for your contributions everyone, but I think we're straying a little bit off topic.",
+"url": "https://github.com/mozilla/standards-positions/issues/852#issuecomment-1650054334"
+}
+]
+}
+},
+"locked": {
+"1287": "off-topic",
+"852": "off-topic",
+"798": "off-topic",
+"522": "",
+"336": "too heated",
+"239": "too heated",
+"207": "off-topic",
+"154": "off-topic",
+"100": "off-topic"
+},
+"mozillians": [
+"bgrins",
+"bholley",
+"emilio",
+"hafta",
+"jesup",
+"martinthomson",
+"tantek"
+]
+}
