@@ -8,6 +8,7 @@ from . import config
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="sptriage", description=__doc__)
+    ap.add_argument("--color", choices=["auto", "always", "never"], help="colors and links (default: auto, on a TTY)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("sync", help="fetch issues (incremental) into .cache/")
@@ -35,15 +36,33 @@ def main(argv=None):
     s.add_argument("--write", action="store_true", help="write plans/labels.json with proposed new labels")
     s.add_argument("--deep", action="store_true", help="also fetch chromestatus feature details (slower, first run)")
 
-    s = sub.add_parser("apply", help="validate and show plans; write to GitHub only with --yes")
-    s.add_argument("numbers", nargs="*", type=int, help="default: all pending plans")
-    s.add_argument("--yes", action="store_true")
+    s = sub.add_parser("show", help="pending plans by review queue; rewrites review/*.md (no GitHub writes)")
+    s.add_argument("numbers", nargs="*", type=int)
+    s.add_argument("-v", action="store_true", help="show OP diffs, comment text and why")
+
+    s = sub.add_parser("approve", help="tick plans in review/*.md: queue names (close, comment, labels, decide), numbers, or all")
+    s.add_argument("targets", nargs="+")
+    s = sub.add_parser("unapprove", help="untick plans in review/*.md")
+    s.add_argument("targets", nargs="+")
+
+    s = sub.add_parser("review", help="step through plans in a terminal, approving each")
+    s.add_argument("numbers", nargs="*", type=int)
+
+    s = sub.add_parser("apply", help="write approved plans to GitHub, then verify each against GitHub")
+    s.add_argument("numbers", nargs="*", type=int, help="only these (still must be approved)")
+    s.add_argument("--dry-run", action="store_true", help="validate and show what would be written")
+
+    s = sub.add_parser("rebase", help="after the issue changed: show what changed and move the plan's base forward")
+    s.add_argument("number", type=int)
 
     sub.add_parser("agenda", help="markdown for the triage meeting notes")
     sub.add_parser("improve", help="summarize corrections and skill notes")
     sub.add_parser("doctor", help="check auth scopes and local data sources")
 
     a = ap.parse_args(argv)
+    if a.color:
+        from . import term
+        term.set_mode(a.color)
 
     if a.cmd == "sync":
         from . import sync
@@ -84,24 +103,21 @@ def main(argv=None):
     elif a.cmd == "labels":
         from . import labels
         print(labels.report(ctx, a.write, a.deep))
+    elif a.cmd == "show":
+        from . import review
+        print(review.show(set(a.numbers) or None, a.v))
+    elif a.cmd in ("approve", "unapprove"):
+        from . import review
+        print(review.approve(a.targets, on=a.cmd == "approve"))
+    elif a.cmd == "review":
+        from . import review
+        return review.interactive(set(a.numbers) or None)
     elif a.cmd == "apply":
+        from . import review
+        return 0 if review.apply(set(a.numbers) or None, a.dry_run) else 1
+    elif a.cmd == "rebase":
         from . import plan
-        nums = a.numbers or plan.pending()
-        if not nums and not plan.path("labels").exists():
-            print("no plans in", config.plans_dir())
-            return 0
-        plan.apply_labels_file(a.yes)
-        ok = True
-        for n in nums:
-            try:
-                ok &= plan.apply(n, a.yes)
-            except plan.PlanError as e:
-                print(f"#{n}: {e}")
-                ok = False
-            print()
-        if not a.yes and ok:
-            print("dry run; re-run with --yes to write")
-        return 0 if ok else 1
+        print(plan.rebase(a.number))
     elif a.cmd == "agenda":
         from . import agenda
         print(agenda.build(ctx))

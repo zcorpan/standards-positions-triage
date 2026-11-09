@@ -9,13 +9,18 @@ import unicodedata
 import urllib.parse
 from datetime import datetime, timezone
 
+from dataclasses import dataclass
+
 from . import body as bodymod
-from . import config, data, gh, sync
+from . import config, data, gh, sync, term
 
 KEYS = {"issue", "base_updated_at", "labels_add", "labels_remove", "status", "assignees_add", "assignees_remove",
-        "title", "body_fields", "comment", "close", "why"}
+        "title", "body_fields", "comment", "close", "ask", "why"}
 LIST_KEYS = ("labels_add", "labels_remove", "assignees_add", "assignees_remove")
 CLOSE_REASONS = {"completed": "completed", "not_planned": "not planned"}
+STATE_REASONS = {"completed": "COMPLETED", "not_planned": "NOT_PLANNED"}
+NO_POSITION_CLOSE = ("duplicate", "invalid", "proposal withdrawn")
+MENTION = re.compile(r"(?<![\w/@.`])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\b")
 LINK_HOSTS = {"bugzilla.mozilla.org", "bugzil.la", "github.com", "chromestatus.com", "webstatus.dev", "developer.mozilla.org",
               "caniuse.com", "web-platform-dx.github.io", "wpt.fyi", "searchfox.org", "groups.google.com", "lists.w3.org"}
 HIDDEN = re.compile(r"[​-‏‪-‮⁠-⁤⁦-⁩﻿\U000e0000-\U000e007f]")
@@ -45,6 +50,73 @@ def pending():
     return sorted(int(p.stem) for p in config.plans_dir().glob("*.json") if p.stem.isdigit())
 
 
+def save(n, plan):
+    path(n).write_text(json.dumps(plan, indent=1, ensure_ascii=False) + "\n")
+
+
+@dataclass
+class Op:
+    kind: str  # label+ label- assign+ assign- title field status comment close
+    arg: object
+    noop: bool = False  # already true on GitHub
+
+
+def ops(plan, issue):
+    """The concrete writes a plan makes, in apply order, with the ones GitHub already reflects marked noop."""
+    out = []
+    for l in plan.get("labels_add") or []:
+        out.append(Op("label+", l, l in issue["labels"]))
+    for l in plan.get("labels_remove") or []:
+        out.append(Op("label-", l, l not in issue["labels"]))
+    for a in plan.get("assignees_add") or []:
+        out.append(Op("assign+", a, a in issue["assignees"]))
+    for a in plan.get("assignees_remove") or []:
+        out.append(Op("assign-", a, a not in issue["assignees"]))
+    if plan.get("title"):
+        out.append(Op("title", plan["title"], plan["title"] == issue["title"]))
+    b = bodymod.Body(issue["body"])
+    for fid, v in (plan.get("body_fields") or {}).items():
+        out.append(Op("field", (fid, v), b.value(fid) == expected_field(issue, fid, v)))
+    if plan.get("status"):
+        out.append(Op("status", plan["status"], plan["status"] == issue["status"]))
+    if plan.get("comment"):
+        out.append(Op("comment", plan["comment"], any((c["body"] or "").strip() == plan["comment"].strip()
+                                                      for c in issue["comments"])))
+    if plan.get("close"):
+        out.append(Op("close", plan["close"].get("reason"), issue["state"] == "CLOSED"))
+    return out
+
+
+def expected_field(issue, fid, v):
+    try:
+        return bodymod.Body(bodymod.Body(issue["body"]).with_fields({fid: v})).value(fid)
+    except ValueError:
+        return None
+
+
+def final_labels(plan, issue):
+    return (set(issue["labels"]) | set(plan.get("labels_add") or [])) - set(plan.get("labels_remove") or [])
+
+
+def mentions(text):
+    text = re.sub(r"`[^`\n]*`", "", re.sub(r"(?s)```.*?```", "", text or ""))
+    return list(dict.fromkeys(MENTION.findall(text)))
+
+
+def queue_of(plan, issue, errs):
+    """Which review queue a plan belongs in."""
+    if errs:
+        return "errors"
+    if plan.get("ask"):
+        return "decide"
+    live = [o for o in ops(plan, issue) if not o.noop]
+    if any(o.kind == "comment" for o in live):
+        return "comment"
+    if any(o.kind == "close" for o in live):
+        return "close"
+    return "labels"
+
+
 def _host_ok(url):
     host = urllib.parse.urlsplit(url).netloc.lower().removeprefix("www.")
     if host in LINK_HOSTS or host.endswith(".spec.whatwg.org") or host.endswith(".github.io"):
@@ -65,7 +137,9 @@ def validate(plan, issue, labels_planned=()):
     labels = set(sync.repo_labels()) | set(labels_planned)
     for l in plan.get("labels_add", []):
         if l not in labels:
-            errs.append(f"label {l!r} doesn't exist (add it to plans/labels.json via `labels`, or pick an existing one)")
+            near = difflib.get_close_matches(l, list(labels), n=3, cutoff=0.5)
+            errs.append(f"label {l!r} doesn't exist" + (f"; closest: {', '.join(near)}" if near else "")
+                        + " (or add it to plans/labels.json via `labels`)")
     for l in plan.get("labels_remove", []):
         if l not in issue["labels"]:
             warns.append(f"label {l!r} isn't on the issue")
@@ -96,8 +170,20 @@ def validate(plan, issue, labels_planned=()):
     for u in URL.findall(plan.get("comment") or ""):
         if not _host_ok(u):
             warns.append(f"comment links an unusual host: {u}")
+    final = final_labels(plan, issue)
+    positions = sorted(l for l in final if l.startswith("position: "))
+    if len(positions) > 1:
+        errs.append(f"more than one position label after the plan: {', '.join(positions)}"
+                    + ("; remove the old one with labels_remove" if set(positions) & set(issue["labels"]) else ""))
+    if plan.get("close") and not positions and not final & set(NO_POSITION_CLOSE):
+        errs.append(f"closes without a position: label (or one of {', '.join(NO_POSITION_CLOSE)})")
+    if plan.get("close") and plan.get("status") and plan["status"] != issue["status"]:
+        warns.append("sets a status on a plan that closes")
+    if plan.get("ask") and not isinstance(plan["ask"], str):
+        errs.append("ask must be a string")
     if plan.get("base_updated_at") and issue["updated"] > plan["base_updated_at"]:
-        errs.append(f"issue changed since the dossier ({issue['updated']} > {plan['base_updated_at']}); re-run `dossier`")
+        errs.append(f"issue changed since the plan was drafted ({issue['updated']} > {plan['base_updated_at']}); "
+                    f"run `sptriage rebase {issue['number']}`")
     if not plan.get("base_updated_at"):
         warns.append("no base_updated_at; can't detect concurrent edits")
     return errs, warns
@@ -113,38 +199,63 @@ def team_hint(login):
     return "ask a team maintainer"
 
 
-def describe(plan, issue):
-    """Compact human-readable summary plus diffs for body/title."""
+def _op_text(o, issue):
+    k, v = o.kind, o.arg
+    if k in ("label+", "label-"):
+        t = term.label(v, k[-1])
+    elif k == "assign+":
+        t = term.c(f"assign {v}", "cyan")
+    elif k == "assign-":
+        t = term.c(f"unassign {v}", "red")
+    elif k == "title":
+        t = "title"
+    elif k == "field":
+        t = f"OP {v[0]}"
+    elif k == "status":
+        t = f"status {issue['status'] or '-'} → {term.c(v, 'cyan')}"
+    elif k == "comment":
+        who = mentions(v)
+        t = term.c("comment" + (" → " + " ".join("@" + w for w in who) if who else ""), "yellow")
+    else:
+        t = term.c(f"close ({v})", "bold")
+    return term.c(term.strip(t) + " (already)", "dim") if o.noop else t
+
+
+def summary(plan, issue):
+    """One line, same order everywhere: status, labels, assignees, title, OP fields, comment, close."""
+    return " · ".join(_op_text(o, issue) for o in ops(plan, issue)) or term.c("(no changes)", "dim")
+
+
+def details(plan, issue):
+    """Indented detail lines: title change, OP diff, comment text, ask, why."""
     out = []
-    n = plan["issue"]
-    parts = []
-    if plan.get("status") and plan["status"] != issue["status"]:
-        parts.append(f"status {issue['status']} → {plan['status']}")
-    if plan.get("labels_add"):
-        parts.append("+" + ", +".join(plan["labels_add"]))
-    if plan.get("labels_remove"):
-        parts.append("-" + ", -".join(plan["labels_remove"]))
-    if plan.get("assignees_add"):
-        parts.append("assign " + ", ".join(plan["assignees_add"]))
-    if plan.get("assignees_remove"):
-        parts.append("unassign " + ", ".join(plan["assignees_remove"]))
-    if plan.get("close"):
-        parts.append(f"close ({plan['close']['reason']})")
-    out.append(f"#{n} {issue['title'][:60]}\n  " + ("; ".join(parts) or "(no field changes)"))
     if plan.get("title"):
-        out.append(f"  title: {issue['title']!r} → {plan['title']!r}")
+        out.append(f"title: {issue['title']!r} → {plan['title']!r}")
     if plan.get("body_fields"):
         try:
             new = bodymod.Body(issue["body"]).with_fields(plan["body_fields"])
-            diff = difflib.unified_diff(issue["body"].splitlines(), new.splitlines(), lineterm="", n=1)
-            out.append("  OP diff:\n" + "\n".join("    " + l for l in list(diff)[2:]))
+            diff = list(difflib.unified_diff(issue["body"].splitlines(), new.splitlines(), lineterm="", n=0))[2:]
+            out += [term.c(l, "green" if l.startswith("+") else "red" if l.startswith("-") else "dim")
+                    for l in diff if not l.startswith("@@")]
         except ValueError as e:
-            out.append(f"  OP edit not possible: {e}")
+            out.append(term.c(f"OP edit not possible: {e}", "red"))
     if plan.get("comment"):
-        out.append("  comment:\n" + "\n".join("    | " + l for l in plan["comment"].splitlines()))
+        out += ["| " + l for l in plan["comment"].splitlines()]
+    if plan.get("ask"):
+        out.append(term.c(f"ask: {plan['ask']}", "yellow", "bold"))
     for k, v in (plan.get("why") or {}).items():
-        out.append(f"  why {k}: {v}")
-    return "\n".join(out)
+        out.append(term.c(f"why {k}: {v}", "dim"))
+    return out
+
+
+def describe(plan, issue, errs=(), warns=(), verbose=True):
+    n = plan["issue"]
+    lines = [f"{term.issue(n)} {issue['title'][:60]}", "  " + summary(plan, issue)]
+    if verbose:
+        lines += ["    " + l for l in details(plan, issue)]
+    lines += ["  " + term.c(f"warning: {w}", "yellow") for w in warns]
+    lines += ["  " + term.c(f"ERROR: {e}", "red", "bold") for e in errs]
+    return "\n".join(lines)
 
 
 def _journal(entry):
@@ -207,54 +318,57 @@ def apply_labels_file(yes):
     return [l["name"] for l in todo]
 
 
-def apply(n, yes=False):
+def check(n, ctx_issues=None):
+    """(plan, issue, errs, warns) for plan N, against the cached issue unless one is given."""
     plan = load(n)
-    issue = sync.refresh_issue(n)
+    issue = (ctx_issues or {}).get(n) or sync.refresh_issue(n)
     planned_labels = []
     lp = path("labels")
     if lp.exists():
         planned_labels = [l["name"] for l in json.loads(lp.read_text()).get("create_labels", [])]
     errs, warns = validate(plan, issue, planned_labels)
-    print(describe(plan, issue))
-    for w in warns:
-        print(f"  warning: {w}")
+    return plan, issue, errs, warns
+
+
+def apply(n, write=False):
+    """Validate against a fresh copy of the issue, run the live ops, then verify. Returns True when all is well."""
+    plan, issue, errs, warns = check(n)
+    print(describe(plan, issue, errs, warns))
     if errs:
-        for e in errs:
-            print(f"  ERROR: {e}")
         return False
-    if not yes:
+    if not write:
         return True
 
     actor = gh.viewer()
     log = lambda op, **kw: _journal({"at": _now(), "actor": actor, "issue": n, "op": op, **kw})
+    live = [o for o in ops(plan, issue) if not o.noop]
     edit = ["issue", "edit", str(n), "-R", config.REPO]
-    for l in plan.get("labels_add", []):
-        edit += ["--add-label", l]
-    for l in plan.get("labels_remove", []):
-        edit += ["--remove-label", l]
-    for a in plan.get("assignees_add", []):
-        edit += ["--add-assignee", a]
-    for a in plan.get("assignees_remove", []):
-        edit += ["--remove-assignee", a]
-    if plan.get("title"):
-        edit += ["--title", plan["title"]]
+    flags = {"label+": "--add-label", "label-": "--remove-label", "assign+": "--add-assignee", "assign-": "--remove-assignee"}
+    fields = {}
+    for o in live:
+        if o.kind in flags:
+            edit += [flags[o.kind], o.arg]
+        elif o.kind == "title":
+            edit += ["--title", o.arg]
+        elif o.kind == "field":
+            fields[o.arg[0]] = o.arg[1]
     new_body = None
-    if plan.get("body_fields"):
-        new_body = bodymod.Body(issue["body"]).with_fields(plan["body_fields"])
+    if fields:
+        new_body = bodymod.Body(issue["body"]).with_fields(fields)
         edit += ["--body-file", "-"]
     if len(edit) > 5:
         gh.run(edit, input=new_body)
-        log("edit", labels_add=plan.get("labels_add"), labels_remove=plan.get("labels_remove"),
-            assignees_add=plan.get("assignees_add"), title=plan.get("title"), body_fields=plan.get("body_fields"))
-    if plan.get("status") and plan["status"] != issue["status"]:
-        set_status(issue, plan["status"])
-        log("status", status=plan["status"])
-    if plan.get("comment"):
-        gh.run(["issue", "comment", str(n), "-R", config.REPO, "--body-file", "-"], input=plan["comment"])
-        log("comment", chars=len(plan["comment"]))
-    if plan.get("close"):
-        gh.run(["issue", "close", str(n), "-R", config.REPO, "--reason", CLOSE_REASONS[plan["close"]["reason"]]])
-        log("close", reason=plan["close"]["reason"])
+        log("edit", ops=[[o.kind, o.arg] for o in live if o.kind in flags or o.kind in ("title", "field")])
+    for o in live:
+        if o.kind == "status":
+            set_status(issue, o.arg)
+            log("status", status=o.arg)
+        elif o.kind == "comment":
+            gh.run(["issue", "comment", str(n), "-R", config.REPO, "--body-file", "-"], input=o.arg)
+            log("comment", chars=len(o.arg))
+        elif o.kind == "close":
+            gh.run(["issue", "close", str(n), "-R", config.REPO, "--reason", CLOSE_REASONS[o.arg]])
+            log("close", reason=o.arg)
 
     hints_p = config.cache_dir() / "dossiers" / f"{n}.json"
     ctx_hints = json.loads(hints_p.read_text())["hints"] if hints_p.exists() else {}
@@ -266,9 +380,77 @@ def apply(n, yes=False):
     path(n).rename(done / f"{n}-{stamp}.json")
     if path(n, ".draft").exists():
         path(n, ".draft").rename(done / f"{n}-{stamp}.draft.json")
-    sync.refresh_issue(n)
-    print(f"  applied #{n}")
-    return True
+
+    after = sync.refresh_issue(n)
+    results = verify(plan, issue, after, actor)
+    bad = [d for ok, d in results if not ok]
+    log("verify", ok=not bad, mismatches=bad)
+    for ok, d in results:
+        print("  " + (term.c("✓", "green") if ok else term.c("✗", "red", "bold")) + f" {d}")
+    print("  " + (term.c(f"applied #{n}", "green") if not bad else term.c(f"applied #{n}, but GitHub doesn't match the plan", "red", "bold")))
+    return not bad
+
+
+def verify(plan, before, after, actor):
+    """[(ok, description)] comparing the issue after applying with what the plan asked for."""
+    out = []
+    for l in plan.get("labels_add") or []:
+        out.append((l in after["labels"], f"label {l}"))
+    for l in plan.get("labels_remove") or []:
+        out.append((l not in after["labels"], f"no label {l}"))
+    for a in plan.get("assignees_add") or []:
+        out.append((a in after["assignees"], f"assigned {a}"))
+    for a in plan.get("assignees_remove") or []:
+        out.append((a not in after["assignees"], f"not assigned {a}"))
+    if plan.get("title"):
+        out.append((after["title"] == plan["title"], "title"))
+    b = bodymod.Body(after["body"])
+    for fid, v in (plan.get("body_fields") or {}).items():
+        out.append((b.value(fid) == expected_field(before, fid, v), f"OP {fid}"))
+    if plan.get("status"):
+        out.append((after["status"] == plan["status"], f"status {plan['status']} (is {after['status'] or '-'})"))
+    if plan.get("comment"):
+        out.append((any(c["author"] == actor and (c["body"] or "").strip() == plan["comment"].strip()
+                        for c in after["comments"]), "comment posted"))
+    if plan.get("close"):
+        want = STATE_REASONS[plan["close"]["reason"]]
+        out.append((after["state"] == "CLOSED" and after.get("state_reason") == want,
+                    f"closed as {plan['close']['reason']} (is {after['state'].lower()}"
+                    f"{', ' + (after.get('state_reason') or '').lower() if after['state'] == 'CLOSED' else ''})"))
+    return out
+
+
+def rebase(n):
+    """Refresh issue N, report what changed since the plan's base, and move the base forward."""
+    plan = load(n)
+    try:
+        cached = sync.load_issues().get(n)
+    except SystemExit:
+        cached = None
+    issue = sync.refresh_issue(n)
+    base = plan.get("base_updated_at") or ""
+    lines = [f"{term.issue(n)} {issue['title'][:60]}"]
+    for c in issue["comments"]:
+        if c["at"] > base:
+            first = (c["body"] or "").strip().splitlines()[0][:100] if (c["body"] or "").strip() else ""
+            lines.append(f"  new comment by {c['author']} {c['at'][:16]}: <untrusted>{first}</untrusted>")
+    try:
+        for e in sync.timeline(n, ttl=0):
+            if (e.get("at") or "") > base and e["event"] in ("labeled", "unlabeled", "assigned", "unassigned", "closed", "reopened", "renamed"):
+                what = e.get("label") or e.get("login") or ""
+                lines.append(f"  {e['event']} {what} by {e.get('by')} {e['at'][:16]}")
+    except gh.GhError as e:
+        lines.append(f"  (timeline unavailable: {e})")
+    if cached and cached.get("status") != issue["status"]:
+        lines.append(f"  status {cached.get('status') or '-'} → {issue['status'] or '-'}")
+    if len(lines) == 1:
+        lines.append("  no comments or events since the base")
+    plan["base_updated_at"] = issue["updated"]
+    save(n, plan)
+    errs, warns = validate(plan, issue)
+    lines.append(describe(plan, issue, errs, warns, verbose=False))
+    lines.append("  base moved to " + issue["updated"] + "; re-approve if it was approved")
+    return "\n".join(lines)
 
 
 def set_status(issue, status):

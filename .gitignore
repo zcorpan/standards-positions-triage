@@ -1,6 +1,7 @@
 .cache/
 .state/
 plans/
+review/
 tmp/
 sptriage.toml
 __pycache__/

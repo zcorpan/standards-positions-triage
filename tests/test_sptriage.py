@@ -1,9 +1,12 @@
+import io
 import json
+import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from sptriage import body, checks, data, plan, webfeatures
+from sptriage import body, checks, config, data, improve, plan, rank, review, term, webfeatures
 
 FIX = Path(__file__).parent / "fixtures"
 
@@ -77,6 +80,13 @@ class ProposalTests(unittest.TestCase):
         for t in no:
             self.assertIsNone(checks.PROPOSAL_RE.search(t), t)
 
+    def test_proposed(self):
+        self.assertEqual(checks.proposed("Seems harmless.\n\nSo we have no urgent need. `neutral`"), ("neutral", False))
+        self.assertEqual(checks.proposed("Overall **positive**."), ("positive", False))
+        self.assertEqual(checks.proposed("This seems reasonable to me."), ("positive", True))
+        self.assertEqual(checks.proposed("> `negative`\n\nThanks"), None)
+        self.assertIsNone(checks.proposed("I'm `neutral` on the naming, but what about X?"))
+
 
 class EngagedTests(unittest.TestCase):
     def test_cc(self):
@@ -143,6 +153,138 @@ class PlanTests(unittest.TestCase):
     def test_planned_label_allowed(self):
         errs, _ = plan.validate(self.good(labels_add=["team: DOM LWS"]), self.issue, ["team: DOM LWS"])
         self.assertEqual(errs, [])
+
+    def test_label_suggestion(self):
+        errs, _ = plan.validate(self.good(labels_add=["topic: Api"]), self.issue)
+        self.assertIn("closest: topic: API", errs[0])
+
+
+ISSUE = {"number": 7, "title": "T", "labels": ["topic: CSS"], "assignees": [], "status": "Position is proposed",
+         "state": "OPEN", "state_reason": None, "updated": "2026-01-01T00:00:00Z", "comments": [],
+         "body": "### Specification title\n\nT\n\n### Bugzilla URL\n\n_No response_\n"}
+
+
+class OpsTests(unittest.TestCase):
+    def setUp(self):
+        labels = {l: {} for l in ("topic: CSS", "position: positive", "position: negative", "invalid", "venue: W3C")}
+        for x in (mock.patch("sptriage.sync.repo_labels", return_value=labels),
+                  mock.patch("sptriage.sync.assignable", return_value={"a"})):
+            x.start()
+            self.addCleanup(x.stop)
+
+    def test_noops(self):
+        p = {"issue": 7, "labels_add": ["topic: CSS", "position: positive"], "status": "Position is proposed",
+             "body_fields": {"bugzilla-url": "https://bugzilla.mozilla.org/show_bug.cgi?id=1"}, "close": {"reason": "completed"}}
+        got = [(o.kind, o.noop) for o in plan.ops(p, ISSUE)]
+        self.assertEqual(got, [("label+", True), ("label+", False), ("field", False), ("status", True), ("close", False)])
+        self.assertEqual(plan.queue_of(p, ISSUE, []), "close")
+        self.assertEqual(plan.queue_of({**p, "comment": "@a hi"}, ISSUE, []), "comment")
+        self.assertEqual(plan.queue_of({**p, "ask": "?"}, ISSUE, []), "decide")
+
+    def lint(self, **kw):
+        return plan.validate({"issue": 7, "base_updated_at": ISSUE["updated"], **kw}, ISSUE)
+
+    def test_lint(self):
+        self.assertIn("closes without a position", self.lint(close={"reason": "completed"})[0][0])
+        self.assertEqual(self.lint(labels_add=["invalid"], close={"reason": "not_planned"})[0], [])
+        two = {**ISSUE, "labels": ["position: negative"]}
+        errs, _ = plan.validate({"issue": 7, "labels_add": ["position: positive"]}, two)
+        self.assertIn("more than one position", errs[0])
+        errs, _ = plan.validate({"issue": 7, "labels_add": ["position: positive"], "labels_remove": ["position: negative"]}, two)
+        self.assertEqual(errs, [])
+        self.assertEqual(plan.mentions("@a can you? `@b` no"), ["a"])
+        _, warns = self.lint(labels_add=["position: positive"], status="Needs a PR", close={"reason": "completed"})
+        self.assertIn("sets a status on a plan that closes", warns)
+
+    def test_verify(self):
+        p = {"issue": 7, "labels_add": ["position: positive"], "labels_remove": ["topic: CSS"], "status": "Needs a PR",
+             "body_fields": {"bugzilla-url": "https://bugzilla.mozilla.org/show_bug.cgi?id=1"}, "comment": "hi",
+             "close": {"reason": "completed"}}
+        new_body = body.Body(ISSUE["body"]).with_fields(p["body_fields"])
+        good = {**ISSUE, "labels": ["position: positive"], "status": "Needs a PR", "body": new_body, "state": "CLOSED",
+                "state_reason": "COMPLETED", "comments": [{"author": "me", "body": "hi\n", "at": "x"}]}
+        self.assertTrue(all(ok for ok, _ in plan.verify(p, ISSUE, good, "me")))
+        bad = {**good, "labels": ["topic: CSS"], "state_reason": "NOT_PLANNED", "comments": []}
+        failed = [d for ok, d in plan.verify(p, ISSUE, bad, "me") if not ok]
+        self.assertEqual(len(failed), 4, failed)
+
+
+class ReviewTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        conf = dict(config.CONF, plans_dir=root / "plans", review_dir=root / "review", state_dir=root / "state",
+                    cache_dir=root / "cache")
+        labels = {l: {} for l in ("topic: CSS", "position: positive")}
+        for x in (mock.patch.dict(config.CONF, conf), mock.patch("sptriage.sync.repo_labels", return_value=labels),
+                  mock.patch("sptriage.sync.assignable", return_value=set()),
+                  mock.patch("sptriage.sync.load_issues", return_value={7: ISSUE}),
+                  mock.patch("sptriage.review._issues", return_value={7: ISSUE})):
+            x.start()
+            self.addCleanup(x.stop)
+        self.write_plan(labels_add=["position: positive"], close={"reason": "completed"})
+
+    def write_plan(self, **kw):
+        plan.save(7, {"issue": 7, "base_updated_at": ISSUE["updated"], **kw})
+
+    def test_ticks_survive_and_clear_on_change(self):
+        out = review.show()
+        self.assertIn("Close (1)", out)
+        text = (config.review_dir() / "close.md").read_text()
+        self.assertIn("- [ ] [#7]", text)
+        review.approve(["close"])
+        self.assertIn("- [x] [#7]", (config.review_dir() / "close.md").read_text())
+        review.show()
+        self.assertIn("- [x] [#7]", (config.review_dir() / "close.md").read_text())
+        self.write_plan(labels_add=["position: positive", "topic: CSS"], close={"reason": "completed"})
+        review.show()
+        text = (config.review_dir() / "close.md").read_text()
+        self.assertIn("- [ ] [#7]", text)
+        self.assertIn("changed since approval", text)
+
+    def test_apply_only_approved(self):
+        review.show()
+        with mock.patch("sptriage.plan.apply", return_value=True) as ap, redirect_stdout(io.StringIO()) as out:
+            review.apply()
+        ap.assert_not_called()
+        self.assertIn("1 unapproved", out.getvalue())
+        review.approve(["7"])
+        with mock.patch("sptriage.plan.apply", return_value=True) as ap, redirect_stdout(io.StringIO()):
+            review.apply()
+        ap.assert_called_once_with(7, write=True)
+
+    def test_edit_by_hand(self):
+        review.show()
+        f = config.review_dir() / "close.md"
+        f.write_text(f.read_text().replace("- [ ] [#7]", "- [x] [#7]"))
+        self.assertEqual(review.current_approved(review.entries(None, {7: ISSUE})), {"7"})
+
+
+class MiscTests(unittest.TestCase):
+    def test_term_plain_when_not_tty(self):
+        with mock.patch.dict("os.environ", {}, clear=True), redirect_stdout(io.StringIO()):
+            self.assertEqual(term.label("position: positive", "+"), "+position: positive")
+            self.assertEqual(term.issue(5), "#5")
+        term.set_mode("always")
+        try:
+            self.assertIn("\x1b[", term.label("position: positive", "+"))
+            self.assertEqual(term.strip(term.issue(5)), "#5")
+        finally:
+            term.set_mode(None)
+
+    def test_queue_table_no_status(self):
+        ctx = mock.Mock(chromestatus={})
+        issue = {"number": 1, "status": None, "title": "t"}
+        self.assertIn("-", rank.table([(0, issue, [])], ctx))
+
+    def test_improve_groups_across_hints(self):
+        with tempfile.TemporaryDirectory() as d:
+            lines = [{"issue": i, "context": {"why": [f"spec host h{i}"]},
+                      "diffs": [{"field": "status", "draft": "Needs a PR", "final": None}]} for i in range(3)]
+            (Path(d) / "corrections.jsonl").write_text("\n".join(json.dumps(x) for x in lines))
+            with mock.patch.dict(config.CONF, state_dir=Path(d), plans_dir=Path(d)):
+                self.assertIn("3× status: 'Needs a PR' → None", improve.summary())
 
 
 if __name__ == "__main__":

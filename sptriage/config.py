@@ -22,6 +22,7 @@ _DEFAULTS = {
     "cache_dir": str(ROOT / ".cache"),
     "state_dir": str(ROOT / ".state"),
     "plans_dir": str(ROOT / "plans"),
+    "review_dir": str(ROOT / "review"),
     "firefox_path": "~/git/mozilla/firefox",
     "bcd_path": "~/git/mdn/browser-compat-data",
     "stall_days": 90,
@@ -36,7 +37,7 @@ def _load():
     if path.exists():
         with open(path, "rb") as f:
             conf.update(tomllib.load(f))
-    for key in ("cache_dir", "state_dir", "plans_dir", "firefox_path", "bcd_path"):
+    for key in ("cache_dir", "state_dir", "plans_dir", "review_dir", "firefox_path", "bcd_path"):
         conf[key] = Path(os.path.expanduser(conf[key]))
     return conf
 
@@ -57,6 +58,11 @@ def state_dir():
 def plans_dir():
     CONF["plans_dir"].mkdir(parents=True, exist_ok=True)
     return CONF["plans_dir"]
+
+
+def review_dir():
+    CONF["review_dir"].mkdir(parents=True, exist_ok=True)
+    return CONF["review_dir"]
 
 
 def firefox_path():

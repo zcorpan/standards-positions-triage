@@ -41,8 +41,14 @@ python3 -m sptriage people 1472      # who could help, with s-p experience and l
 python3 -m sptriage bugs 1456        # Bugzilla bugs tracking the feature
 python3 -m sptriage labels           # label gaps vs Bugzilla teams and BCD dirs
 python3 -m sptriage agenda           # markdown for the meeting notes
-python3 -m sptriage apply [N…] [--yes]   # plans/N.json → GitHub (dry run without --yes)
+python3 -m sptriage show [-v]         # pending plans by queue; rewrites review/*.md
+python3 -m sptriage approve close    # tick a queue (close, comment, labels, decide) or N…
+python3 -m sptriage review           # step through plans in a terminal, approving each
+python3 -m sptriage apply            # write approved plans to GitHub, then verify each
+python3 -m sptriage rebase 1472      # an issue changed: show what, and move the plan's base
 ```
+
+Plans are reviewed in `review/close.md`, `comment.md`, `labels.md`, `decide.md` and `errors.md`: tick `[x]` in an editor, or use `approve`. `apply` writes only ticked entries whose plan hasn't changed since. Colors and links appear on a TTY (`--color always|never`, `NO_COLOR`).
 
 ## Data sources
 
@@ -59,8 +65,9 @@ python3 -m sptriage apply [N…] [--yes]   # plans/N.json → GitHub (dry run wi
 These directories are gitignored and stay on your machine:
 - `.cache/`: fetched data
 - `plans/`: drafted and applied plans
+- `review/`: the review queues
 - `.state/`:
-  - `journal.jsonl`: every write, with your login
+  - `journal.jsonl`: every write, with your login, and whether GitHub matched the plan afterwards
   - `corrections.jsonl`: where an applied plan differed from the draft
   - `skill-notes.md`: notes for improving the skill
 
