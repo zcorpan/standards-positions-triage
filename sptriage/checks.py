@@ -13,6 +13,10 @@ PROPOSAL_RE = re.compile(
     r"\**`?(?:position:\s*)?(positive|neutral|negative|defer)\b",
     re.I,
 )
+# A comment ending in a bare `neutral` / **positive**.
+TRAILING_RE = re.compile(r"[`*_]+(positive|neutral|negative|defer)[`*_]*\s*\.?\s*$", re.I)
+# "Seems reasonable" from a Mozillian usually means positive, but is often hedged: reported as soft.
+SOFT_RE = re.compile(r"\b(?:seems|looks|sounds)\s+(?:quite\s+|pretty\s+|very\s+|fairly\s+)?reasonable\b", re.I)
 POSITIONS = {"positive", "neutral", "negative", "defer", "under consideration"}
 
 
@@ -63,16 +67,26 @@ def position_label(issue):
     return None
 
 
+def proposed(text):
+    """(position, soft) proposed in a comment's text, or None."""
+    text = re.sub(r"(?m)^>.*$", "", text or "").strip()  # ignore quoted text
+    m = PROPOSAL_RE.search(text) or TRAILING_RE.search(text)
+    if m:
+        return m.group(1).lower(), False
+    if SOFT_RE.search(text):
+        return "positive", True
+    return None
+
+
 def proposals(issue, ctx):
-    """Mozillian comments that propose a position: [(index, comment, position)]."""
+    """Mozillian comments that propose a position: [(index, comment, position, soft)]."""
     out = []
     for i, c in enumerate(issue["comments"]):
         if not ctx.is_mozillian(c["author"]):
             continue
-        text = re.sub(r"(?m)^>.*$", "", c["body"] or "")  # ignore quoted text
-        m = PROPOSAL_RE.search(text)
-        if m:
-            out.append((i, c, m.group(1).lower()))
+        p = proposed(c["body"])
+        if p:
+            out.append((i, c, *p))
     return out
 
 
@@ -119,12 +133,14 @@ def run(issue, ctx):
     comments = issue["comments"]
 
     if is_open and props and not pos:
-        i, c, p = props[-1]
+        firm = [x for x in props if not x[3]]
+        i, c, p, soft = (firm or props)[-1]
         age = ctx.days(c["at"])
         later = [x for x in comments[i + 1:] if ctx.is_mozillian(x["author"]) and x["author"] != c["author"]]
         if age >= config.CONF["close_days"]:
             note = f"; {len(later)} later Mozillian comment(s) to check for objections" if later else ""
-            f.append(("ready-close", f"{c['author']} proposed {p} {age}d ago{note}"))
+            how = "said 'reasonable' (soft positive; read it)" if soft else f"proposed {p}"
+            f.append(("ready-close", f"{c['author']} {how} {age}d ago{note}"))
         else:
             f.append(("proposed", f"{c['author']} proposed {p} {age}d ago (wait until {config.CONF['close_days']}d)"))
         if status in ("Unscreened", "Needs assignees", "Needs proposed position"):
@@ -138,7 +154,7 @@ def run(issue, ctx):
         if issue["assignees"] and status in ("Unscreened", "Needs assignees"):
             f.append(("status-mismatch", f"status {status!r} but assigned → 'Needs proposed position'"))
         if pos and pos in POSITIONS - {"under consideration"}:
-            f.append(("status-mismatch", f"open with 'position: {pos}' → close, or 'Needs a PR'"))
+            f.append(("status-mismatch", f"open with 'position: {pos}' → close"))
         for l in ("duplicate", "invalid", "proposal withdrawn"):
             if l in labels:
                 f.append(("status-mismatch", f"open with {l!r} label → close"))
@@ -176,7 +192,7 @@ def run(issue, ctx):
                 f.append(("ping-unanswered", f"{len(tail)} comment(s) incl. the requester, no Mozillian reply for {age}d"))
 
     # missing bug
-    if pos in ("positive", "neutral") or (props and props[-1][2] in ("positive", "neutral")):
+    if pos in ("positive", "neutral") or (props and props[-1][2] in ("positive", "neutral") and not props[-1][3]):
         if not b.value("bugzilla-url"):
             found = sorted({x for c in comments for x in bugs_in(c["body"])}, key=int)
             hint = f" (comments link bug {', '.join(found[:3])})" if found else ""

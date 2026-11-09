@@ -7,7 +7,7 @@ from . import body as bodymod
 from . import bugzilla, checks, config, data, firefox, people, sync, webfeatures
 from .rank import STATUS_ABBR
 
-OP_CAP, COMMENT_CAP, COMMENTS = 2000, 500, 8
+OP_CAP, COMMENT_CAP, MOZ_COMMENT_CAP, COMMENTS = 2000, 500, 4000, 8
 
 
 def hints(issue, ctx, cs_feature=None, wf=None):
@@ -165,6 +165,8 @@ def build(number, ctx, refresh=True):
     lines.append(f"- venue: {h['venue'] or '?'} · topics: {', '.join(h['topics']) or '?'} · teams: {', '.join(h['teams']) or '?'}"
                  + (f" · no team label for: {', '.join(h['team_gaps'])}" if h["team_gaps"] else "")
                  + (f" · no topic label for BCD {', '.join(h['topic_gaps'])}" if h["topic_gaps"] else ""))
+    concerns = sorted(l[len("concerns: "):] for l in sync.repo_labels() if l.startswith("concerns: "))
+    lines.append(f"- existing concerns: labels: {', '.join(concerns)}")
     for o in h["ownership"]:
         lines.append(f"- gecko: {o['via']} → {o.get('component') or '?'} ({o.get('team') or '?'}){' · ' + o['path'] if o.get('path') else ''}")
 
@@ -176,11 +178,17 @@ def build(number, ctx, refresh=True):
 
     lines.append("\n## OP")
     lines.append(_wrap(issue["body"], OP_CAP))
-    lines.append(f"\n## Last {min(COMMENTS, len(issue['comments']))} of {issue['comment_count']} comments")
-    for c in issue["comments"][-COMMENTS:]:
-        moz = "Mozillian" if ctx.is_mozillian(c["author"]) else "non-Mozillian"
-        lines.append(f"\n### {c['author']} ({moz}) {c['at'][:10]}")
-        lines.append(_wrap(c["body"], COMMENT_CAP))
+    shown = issue["comments"][-COMMENTS:]
+    props = checks.proposals(issue, ctx)
+    older = [c for _, c, _, soft in props if not soft and c not in shown][-1:]
+    for c in older:
+        lines.append(f"\n## Earlier proposal\n\n### {c['author']} (Mozillian) {c['at'][:10]}")
+        lines.append(_wrap(c["body"], MOZ_COMMENT_CAP))
+    lines.append(f"\n## Last {len(shown)} of {issue['comment_count']} comments")
+    for c in shown:
+        moz = ctx.is_mozillian(c["author"])
+        lines.append(f"\n### {c['author']} ({'Mozillian' if moz else 'non-Mozillian'}) {c['at'][:10]}")
+        lines.append(_wrap(c["body"], MOZ_COMMENT_CAP if moz else COMMENT_CAP))
 
     text = "\n".join(lines)
     d = config.cache_dir() / "dossiers"

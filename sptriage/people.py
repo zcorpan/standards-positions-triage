@@ -91,7 +91,7 @@ def candidates(issue, ctx, hints=None, limit=8):
             continue
         for a in other["assignees"]:
             add(a, w, f"assigned #{n} ({why})")
-        for _, c, _p in checks.proposals(other, ctx):
+        for _, c, _p, _soft in checks.proposals(other, ctx):
             add(c["author"], w * 1.5, f"proposed on #{n} ({why})")
 
     # Gecko ownership: mots owners/peers for the component, git-log reviewers for the path
