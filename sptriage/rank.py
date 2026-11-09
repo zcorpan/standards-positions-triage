@@ -1,6 +1,6 @@
 """Queue ordering and the compact queue table."""
 
-from . import checks
+from . import checks, term
 from .chromestatus import urgency
 
 WEIGHT = {"ready-close": 50, "status-mismatch": 20, "ping-unanswered": 30, "cc-unanswered": 12, "stalled": 10, "missing-bug": 5,
@@ -47,10 +47,14 @@ def table(rows, ctx, limit=20, verbose=False):
             stage = f"{cs['stage'][:8]}{'/M' + str(m) if m else ''}"
         codes = sorted({c for c, _ in f}, key=lambda c: -WEIGHT.get(c, 0))
         title = issue["title"][:60]
-        lines.append(f"{issue['number']:>5} {STATUS_ABBR.get(issue['status'], (issue['status'] or '')[:5]):5} {stage:16} {','.join(codes)[:44]:44} {title}")
+        status = STATUS_ABBR.get(issue['status'], (issue['status'] or '')[:5])
+        code_s = f"{','.join(codes)[:44]:44}"
+        if codes and codes[0] == "ready-close":
+            code_s = term.c(code_s, "green")
+        lines.append(f"{term.issue(issue['number'], 5)} {status:5} {term.c(f'{stage:16}', 'dim')} {code_s} {title}")
         if verbose:
             for c, msg in f:
-                lines.append(f"{'':28}{c}: {msg}")
+                lines.append(term.c(f"{'':28}{c}: {msg}", "dim"))
     total = len(rows)
     if total > limit:
         lines.append(f"… {total - limit} more (--limit)")
