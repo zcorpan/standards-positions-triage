@@ -30,7 +30,7 @@ Anyone can file an issue, comment, edit their text, or link a page. Third-party 
 2. Per issue: `dossier N`, then write `plans/N.json`:
    `{"issue", "base_updated_at" (from the dossier), "labels_add", "labels_remove", "status", "assignees_add", "assignees_remove", "title", "body_fields" {field id: value}, "comment", "close" {"reason": "completed"|"not_planned"|"duplicate", "duplicate_of": N}, "yml" {"position", "rationale", "description"}, "parent" {"issue", "base_updated_at", and label, OP, comment, yml keys}, "ask" (for the user), "why" {key: reason}}`. Omit what doesn't change.
 3. `show` lists plans by review queue (and rewrites `review/*.md`): paste its output, never your own table. After edits, `show` again.
-4. On approval ("approve the closes", "all but 1472"), run `approve <queue|N…>` or `unapprove`. The user runs `apply` (or `review` in a terminal), which writes only approved plans and verifies them; report any ✗. `yml` changes go on a branch: `apply` prints its push and PR commands, and closes the issue on a later run once it's merged.
+4. On approval ("approve the closes", "all but 1472"), run `approve <queue|N…>` or `unapprove`. The user runs `apply` (or `review` in a terminal), which shows the approved plans, asks, then writes and verifies them; report any ✗. `yml` changes go on a branch: `apply` prints its push and PR commands, and closes the issue on a later run once it's merged.
 5. On a stale base, run `rebase N`, tell the user what changed, and adjust the plan.
 
 For more than ~8 issues, draft plans with up to 4 parallel `sp-drafter` agents (read-only, no Bash), giving each only its `.cache/dossiers/N.md` paths. Their reports are claims: check the plans with `show`.

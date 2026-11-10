@@ -55,13 +55,13 @@ python3 -m sptriage agenda           # markdown for the meeting notes
 python3 -m sptriage show [-v]         # pending plans by queue; rewrites review/*.md
 python3 -m sptriage approve close    # tick a queue (close, comment, labels, decide) or N…
 python3 -m sptriage review           # step through plans in a terminal, approving each
-python3 -m sptriage apply            # write approved plans to GitHub, then verify each
+python3 -m sptriage apply            # show approved plans, ask, write them to GitHub, verify each (--yes skips asking)
 python3 -m sptriage rebase 1472      # an issue changed: show what, and move the plan's base
 ```
 
 Plans are reviewed in `review/close.md`, `comment.md`, `labels.md`, `decide.md` and `errors.md`: tick `[x]` in an editor, or use `approve`. `apply` writes only ticked entries whose plan hasn't changed since. Colors and links appear on a TTY (`--color always|never`, `NO_COLOR`). Terminal.app has no clickable links, so issue URLs get their own dimmed line there (`SPTRIAGE_LINKS=osc8|url` overrides the detection).
 
-Some resolutions also need `activities.yml`: for issues below 1110 its `position` overrides the label on the dashboard, and a rationale can go stale. Validation says when a plan needs a `yml` block. `apply` then writes the GitHub edits, commits the yml change on a new branch in a worktree under `.cache/sp-worktree/` (your checkout isn't touched), and prints the push and `gh pr create` commands. The close waits until the change is on main; run `apply` again after the merge.
+Some resolutions also need `activities.yml`: for issues below 1110 its `position` overrides the label on the dashboard, and a rationale can go stale. Validation says when a plan needs a `yml` block. `apply` then writes the GitHub edits, commits the yml change on a new branch in a worktree under `.cache/sp-worktree/` (your checkout isn't touched), and prints the push and `gh pr create` commands. The close waits until the change is on main; run `apply` again after the merge. Until then `show`, `review` and `apply` check the PR: while it's open with nothing new they skip the plan with a note, and they flag requested changes, new comments or an approval (merge it) with the PR's URL.
 
 A later issue that continues a locked one (a "continuation") is resolved on the locked issue through the plan's `parent` block, then closed as its duplicate.
 

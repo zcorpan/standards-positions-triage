@@ -517,12 +517,17 @@ def _report(results, prefix=""):
     return [d for ok, d in results if not ok]
 
 
-def apply(n, write=False, yml_out=None):
+def apply(n, write=False, yml_out=None, brief=False):
     """Validate against fresh copies of the issues, then in phases: GitHub edits (parent first) and verify; the yml
     change (queued in `yml_out` for one branch per run, or waiting for its PR); the close and verify.
+    `brief` prints only the plan's first line, for when the full plan was just shown.
     Returns "done", "waiting" (yml not on main yet) or "failed"."""
     plan, issue, errs, warns, parent = check(n)
-    print(describe(plan, issue, errs, warns, parent=parent))
+    if brief:
+        print("\n".join([f"{term.issue(n)} {issue['title'][:60]}" if issue else f"#{n}"]
+                        + ["  " + term.c(f"ERROR: {e}", "red", "bold") for e in errs]))
+    else:
+        print(describe(plan, issue, errs, warns, parent=parent))
     if errs:
         return "failed"
     if not write:

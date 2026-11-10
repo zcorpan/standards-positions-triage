@@ -254,8 +254,66 @@ class ReviewTests(unittest.TestCase):
         self.assertIn("1 unapproved", out.getvalue())
         review.approve(["7"])
         with mock.patch("sptriage.plan.apply", return_value="done") as ap, redirect_stdout(io.StringIO()):
-            review.apply()
-        ap.assert_called_once_with(7, write=True, yml_out=[])
+            review.apply(yes=True)
+        ap.assert_called_once_with(7, write=True, yml_out=[], brief=False)
+
+    def test_apply_asks_first(self):
+        review.show()
+        review.approve(["7"])
+        preview = mock.call(7)
+        with mock.patch("sptriage.plan.apply", return_value="done") as ap, redirect_stdout(io.StringIO()) as out:
+            review.apply()  # not a terminal: preview only
+        self.assertEqual(ap.call_args_list, [preview])
+        self.assertIn("--yes", out.getvalue())
+        for ans, calls in (("n", [preview]), ("y", [preview, mock.call(7, write=True, yml_out=[], brief=True)])):
+            with mock.patch("sptriage.plan.apply", return_value="done") as ap, redirect_stdout(io.StringIO()), \
+                    mock.patch("sys.stdin.isatty", return_value=True), mock.patch("builtins.input", return_value=ans):
+                review.apply()
+            self.assertEqual(ap.call_args_list, calls)
+
+    def pr(self, **kw):
+        return {"number": 9, "url": "https://github.com/o/r/pull/9", "state": "OPEN", "decision": None, "new": 0, **kw}
+
+    def test_open_yml_pr_holds_the_plan(self):
+        review.show()
+        review.approve(["7"])
+        cases = ((self.pr(), "once it's merged, `apply` will: +position: positive · close (completed)"), (self.pr(new=2), "2 new comment(s)"),
+                 (self.pr(decision="CHANGES_REQUESTED"), "changes requested"),
+                 (self.pr(decision="APPROVED"), "approved: merge it"), ({}, "no PR from branch"))
+        for status, note in cases:
+            with mock.patch("sptriage.activities.branch_for", return_value="b"), \
+                    mock.patch("sptriage.activities.pr_status", return_value=status), \
+                    mock.patch("sptriage.plan.apply", return_value="done") as ap, \
+                    mock.patch("builtins.input") as inp, redirect_stdout(io.StringIO()) as out:
+                review.apply()
+            ap.assert_not_called()
+            inp.assert_not_called()
+            self.assertIn(note, out.getvalue())
+            self.assertIn("waiting for a yml PR 1", out.getvalue())
+
+    def test_merged_or_unknown_yml_pr_applies(self):
+        review.show()
+        review.approve(["7"])
+        for status in (self.pr(state="MERGED"), None):
+            with mock.patch("sptriage.activities.branch_for", return_value="b"), \
+                    mock.patch("sptriage.activities.pr_status", return_value=status), \
+                    mock.patch("sptriage.plan.apply", return_value="done") as ap, redirect_stdout(io.StringIO()):
+                review.apply(yes=True)
+            ap.assert_called_once()
+
+    def test_review_skips_quiet_pr_and_opens_attention(self):
+        for status, answers, opened in ((self.pr(), [], False), (self.pr(new=1), ["o", "s"], True)):
+            with mock.patch("sptriage.activities.branch_for", return_value="b"), \
+                    mock.patch("sptriage.activities.pr_status", return_value=status), \
+                    mock.patch("sys.stdin.isatty", return_value=True), \
+                    mock.patch("builtins.input", side_effect=answers) as inp, \
+                    mock.patch("webbrowser.open") as wb, redirect_stdout(io.StringIO()) as out:
+                self.assertEqual(review.interactive(), 0)
+            self.assertEqual(inp.call_count, len(answers))
+            self.assertEqual(wb.called, opened)
+            if opened:
+                wb.assert_called_with(status["url"])
+            self.assertIn("Nothing to apply", out.getvalue())
 
     def test_edit_by_hand(self):
         review.show()
@@ -438,6 +496,29 @@ class PhasedApplyTests(unittest.TestCase):
             activities.done(7)
             self.assertFalse(wt.exists())
             self.assertIsNone(activities.branch_for(7))
+
+
+class PrStatusTests(unittest.TestCase):
+    def data(self, comments=(), reviews=(), commit="2026-01-02T00:00:00Z", decision="REVIEW_REQUIRED"):
+        node = {"number": 9, "url": "u", "state": "OPEN", "reviewDecision": decision,
+                "commits": {"nodes": [{"commit": {"committedDate": commit}}]},
+                "comments": {"nodes": [{"createdAt": t, "author": {"login": a, "__typename": k}} for t, a, k in comments]},
+                "reviews": {"nodes": [{"submittedAt": t, "state": st, "author": {"login": a, "__typename": "User"}}
+                                      for t, a, st in reviews]}}
+        return {"viewer": {"login": "me"}, "repository": {"pullRequests": {"nodes": [node]}}}
+
+    def test_counts_only_others_after_last_commit_or_my_reply(self):
+        s = activities.summarize_pr
+        self.assertEqual(s({"viewer": {"login": "me"}, "repository": {"pullRequests": {"nodes": []}}}), {})
+        self.assertIsNone(s(self.data())["decision"])
+        self.assertEqual(s(self.data(comments=[("2026-01-01T00:00:00Z", "x", "User")]))["new"], 0)  # before the commit
+        self.assertEqual(s(self.data(comments=[("2026-01-03T00:00:00Z", "x", "User"),
+                                               ("2026-01-03T00:00:00Z", "ci", "Bot"),
+                                               ("2026-01-03T00:00:00Z", "me", "User")]))["new"], 0)  # my reply is last
+        self.assertEqual(s(self.data(comments=[("2026-01-04T00:00:00Z", "x", "User"), ("2026-01-03T00:00:00Z", "me", "User")],
+                                     reviews=[("2026-01-05T00:00:00Z", "y", "COMMENTED"),
+                                              ("2026-01-05T00:00:00Z", "z", "APPROVED")]))["new"], 2)
+        self.assertEqual(s(self.data(decision="APPROVED"))["decision"], "APPROVED")
 
 
 # Third-party text that tries to steer the model, fake structure, hide from readers, or reach the terminal.

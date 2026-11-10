@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import sys
+import webbrowser
 from dataclasses import dataclass, field
 
 from . import activities, config, sync, term, untrusted
@@ -20,6 +21,7 @@ QUEUES = {
     "errors": ("Errors", "Can't be applied until the plan is fixed."),
 }
 NEW_LABELS = "new-labels"
+HELD = {"quiet", "attention", "merge"}  # yml PR still open: nothing for `apply` to do yet
 ENTRY = re.compile(r"^- \[([ xX])\] .*<!-- plan (\S+) (\w+) -->\s*$")
 
 
@@ -40,12 +42,66 @@ class Entry:
         return activities.branch_for(self.id) if self.id.isdigit() else None
 
     @property
+    def pr(self):
+        return activities.pr_status(self.waiting) if self.waiting else None
+
+    @property
+    def pr_kind(self):
+        """Where a plan waiting on its yml PR stands: "quiet" (open, nothing new, or no PR yet), "attention" (changes
+        requested or new comments), "merge" (approved), "closed" (unmerged), or None (merged, unknown, not waiting)."""
+        pr = self.pr if self.waiting else None
+        if pr is None or pr.get("state") == "MERGED":
+            return None
+        if not pr:
+            return "quiet"
+        if pr["state"] == "CLOSED":
+            return "closed"
+        if pr["decision"] == "CHANGES_REQUESTED" or pr["new"]:
+            return "attention"
+        return "merge" if pr["decision"] == "APPROVED" else "quiet"
+
+    @property
     def approvable(self):
         if self.queue == "errors":
             return False
         if self.id == NEW_LABELS:
             return True
         return any(not o.noop for o in planmod.ops(self.plan, self.issue, self.parent)) or bool(self.plan.get("close"))
+
+
+def _after_merge(e):
+    rest = [term.strip(planmod._op_text(o, e.issue)) for o in planmod.ops(e.plan, e.issue, e.parent)
+            if not o.noop and o.kind != "yml"]
+    return " · ".join(rest) or "finish the plan"
+
+
+def waiting_note(e):
+    """One line on where a plan waiting on its yml PR stands, or None if it isn't waiting."""
+    if not e.waiting:
+        return None
+    pr, k = e.pr, e.pr_kind
+    if pr is None:
+        return f"waiting: yml PR from branch {e.waiting} isn't on main yet; `apply` finishes it"
+    if not pr:
+        return f"waiting: no PR from branch {e.waiting} yet; push it and open one"
+    n, then = f"PR #{pr['number']}", _after_merge(e)
+    if pr["state"] == "MERGED":
+        return f"{n} is merged; `apply` will: {then}"
+    if k == "closed":
+        return f"{n} was closed without merging; fix the plan's yml or unapprove it"
+    if k == "attention":
+        bits = (["changes requested"] if pr["decision"] == "CHANGES_REQUESTED" else []) + \
+               ([f"{pr['new']} new comment(s)"] if pr["new"] else [])
+        return (f"{n} has {' · '.join(bits)}: address them at {pr['url']} "
+                f"(or ask Claude to follow up on {config.REPO}#{pr['number']})")
+    if k == "merge":
+        return f"{n} is approved: merge it at {pr['url']}, then `apply` will: {then}"
+    return f"waiting: {n} is open, no reviews or new comments; once it's merged, `apply` will: {then}"
+
+
+def _note(e):
+    color = {"closed": ("red", "bold"), "attention": ("cyan", "bold"), "merge": ("green", "bold")}.get(e.pr_kind, ("yellow",))
+    return term.c(waiting_note(e), *color)
 
 
 def plan_hash(obj):
@@ -95,7 +151,7 @@ def _entry_md(e, ticked, changed):
         head = f"[#{n}]({term.issue_url(n)}) {untrusted.md_text(e.issue['title'][:70])} · {planmod.summary(e.plan, e.issue, e.parent)}"
         detail = planmod.details(e.plan, e.issue, e.parent)
         if e.waiting:
-            head += f" · **waiting: yml PR from branch {e.waiting}**"
+            head += f" · **{waiting_note(e)}**"
     if changed:
         head += " · **changed since approval**"
     lines = [f"- [{'x' if ticked else ' '}] {head} <!-- plan {e.id} {e.hash} -->" if e.approvable else f"- {head}"]
@@ -156,7 +212,7 @@ def show(nums=None, verbose=False):
             out += term.url_lines(term.issue_url(int(e.id)), "        ")
             out.append(f"        {planmod.summary(e.plan, e.issue, e.parent)}")
             if e.waiting:
-                out.append("        " + term.c(f"waiting: yml PR from branch {e.waiting} isn't on main yet; `apply` finishes it", "yellow"))
+                out.append("        " + _note(e))
             if verbose:
                 out += ["          " + l for l in planmod.details(e.plan, e.issue, e.parent)]
             out += ["        " + term.c(f"warning: {w}", "yellow") for w in e.warns]
@@ -195,8 +251,9 @@ def _key(i):
     return (0, int(i)) if i.isdigit() else (1, i)
 
 
-def apply(nums=None, dry_run=False):
-    """Write approved entries (hash must match the current plan), verify each, then refresh the queue files."""
+def apply(nums=None, dry_run=False, yes=False):
+    """Write approved entries (hash must match the current plan), verify each, then refresh the queue files.
+    Unless `yes`, first shows what would be written and asks."""
     t = ticks()
     todo, changed, unapproved = [], [], 0
     for n in planmod.pending():
@@ -213,13 +270,24 @@ def apply(nums=None, dry_run=False):
             changed.append(n)
         else:
             unapproved += 1
-    ok, failed, waiting, yml = [], [], [], []
+    held = []
+    if any(activities.branch_for(n) for n in todo):
+        for e in entries({n for n in todo if activities.branch_for(n)}, sync.load_issues()):
+            if e.pr_kind in HELD:
+                held.append(int(e.id))
+                print(f"{term.issue(int(e.id))} {e.issue['title'][:60]}\n  {_note(e)}\n")
+        todo = [n for n in todo if n not in held]
+    ok, failed, waiting, yml = [], [], list(held), []
     lp = planmod.path("labels")
-    if not nums and lp.exists() and t.get(NEW_LABELS) == plan_hash(json.loads(lp.read_text())):
+    labels = not nums and lp.exists() and t.get(NEW_LABELS) == plan_hash(json.loads(lp.read_text()))
+    confirm = not dry_run and not yes and bool(todo or labels)
+    if confirm and not _confirm(todo, labels):
+        return True
+    if labels:
         planmod.apply_labels_file(not dry_run)
     for n in todo:
         try:
-            r = planmod.apply(n, write=not dry_run, yml_out=yml)
+            r = planmod.apply(n, write=not dry_run, yml_out=yml, brief=confirm)
         except (planmod.PlanError, activities.YmlError) as e:
             print(f"#{n}: {e}")
             r = "failed"
@@ -252,6 +320,32 @@ def apply(nums=None, dry_run=False):
     return not failed
 
 
+def _confirm(todo, labels):
+    """Show what `apply` would write, validated against fresh issues, and ask."""
+    if labels:
+        planmod.apply_labels_file(False)
+    bad = []
+    for n in todo:
+        try:
+            if planmod.apply(n) == "failed":
+                bad.append(n)
+        except (planmod.PlanError, activities.YmlError) as e:
+            print(f"#{n}: {e}")
+            bad.append(n)
+        print()
+    what = f"{len(todo)} plan(s)" + (" and new labels" if labels else "")
+    if bad:
+        print(term.c("won't apply: " + " ".join(f"#{n}" for n in bad), "red", "bold"))
+    if not sys.stdin.isatty():
+        print(f"Would write {what}; rerun with --yes to write without asking.")
+        return False
+    if input(f"Write {what} to GitHub? [y/N] ").strip().lower() != "y":
+        print("Nothing written; run `python3 -m sptriage apply` when ready.")
+        return False
+    print()
+    return True
+
+
 def interactive(nums=None):
     """Step through plans in a terminal: approve, skip, edit, quit; then offer to apply."""
     if not sys.stdin.isatty():
@@ -268,7 +362,23 @@ def interactive(nums=None):
             i += 1
             continue
         print(term.c(QUEUES[e.queue][0], "bold") + f" ({i + 1}/{len(es)})" + (term.c("  approved", "green") if e.id in approved else ""))
+        k = e.pr_kind
+        if k in HELD:
+            print(f"{term.issue(int(e.id))} {e.issue['title'][:60]}\n  {_note(e)}")
+            if k == "quiet":
+                i += 1
+                continue
+            ans = input("[o]pen PR [s]kip [q]uit ").strip().lower()[:1]
+            if ans == "o":
+                webbrowser.open(e.pr["url"])
+                continue
+            if ans == "q":
+                break
+            i += 1
+            continue
         print(planmod.describe(e.plan, e.issue, e.errs, e.warns, parent=e.parent))
+        if k == "closed":
+            print("  " + _note(e))
         choices = ("[a]pprove " if e.approvable else "") + "[u]napprove [s]kip [e]dit [q]uit"
         ans = input(choices + " ").strip().lower()[:1]
         if ans == "e":
@@ -285,8 +395,10 @@ def interactive(nums=None):
         i += 1
     all_es = entries(None, sync.load_issues())
     write(all_es, approved & {x.id for x in all_es})
-    n = len(current_approved(all_es))
-    if n and input(f"{n} approved. Apply now? [y/N] ").strip().lower() == "y":
-        return 0 if apply() else 1
-    print(f"{n} approved; run `python3 -m sptriage apply` when ready.")
+    ok = current_approved(all_es)
+    n = sum(1 for x in all_es if x.id in ok and x.pr_kind not in HELD)
+    if n:
+        print(f"\n{n} approved, including any approved earlier:\n")
+        return 0 if apply() else 1  # shows them all and asks
+    print("\nNothing to apply.")
     return 0

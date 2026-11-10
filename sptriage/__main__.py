@@ -48,9 +48,10 @@ def main(argv=None):
     s = sub.add_parser("review", help="step through plans in a terminal, approving each")
     s.add_argument("numbers", nargs="*", type=int)
 
-    s = sub.add_parser("apply", help="write approved plans to GitHub, then verify each against GitHub")
+    s = sub.add_parser("apply", help="show approved plans, ask, write them to GitHub, then verify each")
     s.add_argument("numbers", nargs="*", type=int, help="only these (still must be approved)")
     s.add_argument("--dry-run", action="store_true", help="validate and show what would be written")
+    s.add_argument("-y", "--yes", action="store_true", help="write without showing the plans and asking first")
 
     s = sub.add_parser("rebase", help="after the issue changed: show what changed and move the plan's base forward")
     s.add_argument("number", type=int)
@@ -117,7 +118,7 @@ def main(argv=None):
         return review.interactive(set(a.numbers) or None)
     elif a.cmd == "apply":
         from . import review
-        return 0 if review.apply(set(a.numbers) or None, a.dry_run) else 1
+        return 0 if review.apply(set(a.numbers) or None, a.dry_run, a.yes) else 1
     elif a.cmd == "rebase":
         from . import plan
         print(plan.rebase(a.number))

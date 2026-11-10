@@ -216,6 +216,50 @@ def _pr_create(branch, commits):
             f"--title {shlex.quote(title)} --body {shlex.quote(body)}")
 
 
+PR_QUERY = """query($owner: String!, $name: String!, $branch: String!) {
+  viewer { login }
+  repository(owner: $owner, name: $name) {
+    pullRequests(headRefName: $branch, last: 1, states: [OPEN, MERGED, CLOSED]) { nodes {
+      number url state reviewDecision
+      commits(last: 1) { nodes { commit { committedDate } } }
+      reviews(last: 20) { nodes { state submittedAt author { login __typename } } }
+      comments(last: 50) { nodes { createdAt author { login __typename } } }
+    } }
+  }
+}"""
+
+
+def pr_status(branch):
+    """The yml PR from `branch`: {number, url, state, decision, new}, {} if there's none, None if the lookup failed.
+    `new` counts others' comments and non-approval reviews since the last commit or the viewer's last comment."""
+    key = ("pr", branch)
+    if key not in _memo:
+        from . import gh
+        try:
+            data = gh.graphql(PR_QUERY, owner=config.OWNER, name=config.NAME, branch=branch)
+            _memo[key] = summarize_pr(data)
+        except (gh.GhError, json.JSONDecodeError, KeyError, TypeError):
+            _memo[key] = None
+    return _memo[key]
+
+
+def summarize_pr(data):
+    nodes = data["repository"]["pullRequests"]["nodes"]
+    if not nodes:
+        return {}
+    pr, me = nodes[0], data["viewer"]["login"]
+    events = [(c["createdAt"], c["author"], "COMMENTED") for c in pr["comments"]["nodes"]]
+    events += [(r["submittedAt"], r["author"], r["state"]) for r in pr["reviews"]["nodes"] if r["submittedAt"]]
+    commits = pr["commits"]["nodes"]
+    since = max([commits[0]["commit"]["committedDate"]] if commits else [""])
+    mine = [t for t, a, _ in events if a and a["login"] == me]
+    since = max([since] + mine)
+    new = sum(1 for t, a, st in events
+              if t > since and a and a["login"] != me and a.get("__typename") != "Bot" and st != "APPROVED")
+    return {"number": pr["number"], "url": pr["url"], "state": pr["state"], "decision": pr["reviewDecision"] if pr["reviewDecision"] in ("APPROVED", "CHANGES_REQUESTED") else None,
+            "new": new}
+
+
 def done(plan_id):
     """Forget the branch for a finished plan and remove its worktree once no plan uses it."""
     p, st = _state()
