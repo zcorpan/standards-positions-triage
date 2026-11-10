@@ -4,6 +4,7 @@ prepare that change as commits on a branch in a separate worktree (the user push
 import io
 import json
 import re
+import shlex
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -180,6 +181,7 @@ def prepare(changes):
     wt = config.cache_dir() / "sp-worktree" / branch
     wt.parent.mkdir(parents=True, exist_ok=True)
     _git(["worktree", "add", "-q", "-b", branch, str(wt), "origin/main"])
+    commits = []
     try:
         for _, n, y, title, see in changes:
             key = edit_file(wt / "activities.yml", n, y, title)
@@ -187,7 +189,8 @@ def prepare(changes):
             if v.returncode != 0:
                 raise YmlError(f"activities.py validate failed for #{n}: {(v.stdout + v.stderr).strip()[-500:]}")
             _git(["add", "activities.yml"], cwd=wt)
-            _git(["commit", "-q", "-m", _commit_title(key, y), "-m", f"See #{see}."], cwd=wt)
+            commits.append((_commit_title(key, y), f"See #{see}."))
+            _git(["commit", "-q", "-m", commits[-1][0], "-m", commits[-1][1]], cwd=wt)
     except Exception:
         _git(["worktree", "remove", "--force", str(wt)], check=False)
         _git(["branch", "-D", branch], check=False)
@@ -197,8 +200,20 @@ def prepare(changes):
         st[str(plan_id)] = branch
     p.write_text(json.dumps(st, indent=1) + "\n")
     cmds = [f"git -C {wt} push -u origin {branch}",
-            f"gh pr create -R {config.REPO} --head {branch} --fill"]
+            _pr_create(branch, commits)]
     return branch, wt, cmds
+
+
+def _pr_create(branch, commits):
+    """`gh pr create` with an explicit title and body: `--fill` reads the local repo, which is the triage
+    checkout when the user runs it, not the worktree."""
+    if len(commits) == 1:
+        title, body = commits[0]
+    else:
+        title = "Update activities.yml"
+        body = "\n".join(f"- {t}. {b}" for t, b in commits)
+    return (f"gh pr create -R {config.REPO} --base main --head {branch} "
+            f"--title {shlex.quote(title)} --body {shlex.quote(body)}")
 
 
 def done(plan_id):

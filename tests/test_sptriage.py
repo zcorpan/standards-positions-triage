@@ -432,6 +432,8 @@ class PhasedApplyTests(unittest.TestCase):
             self.assertIn("position: positive", (wt / "activities.yml").read_text())
             log = subprocess.run(["git", "log", "-1", "--format=%s%n%b", branch], cwd=sp, capture_output=True, text=True).stdout
             self.assertEqual(log.strip(), "Three (positive)\nSee #7.")
+            self.assertNotIn("--fill", cmds[1])  # `--fill` reads the cwd's repo, not the worktree
+            self.assertIn("--title 'Three (positive)' --body 'See #7.'", cmds[1])
             self.assertIn("neutral", (sp / "activities.yml").read_text())  # the user's checkout is untouched
             activities.done(7)
             self.assertFalse(wt.exists())
