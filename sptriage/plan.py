@@ -562,6 +562,12 @@ def apply(n, write=False, yml_out=None, brief=False):
                 print("  " + term.c("✓", "green") + f" activities.yml on main has #{tn}'s change")
         if missing:
             branch = activities.branch_for(n)
+            if branch and (activities.pr_status(branch) or {}).get("state") == "CLOSED" \
+                    and not all(activities.matches(tn, y, ref=branch) for tn, y, _ in missing):
+                print("  " + term.c(f"PR from branch {branch} was closed and the plan's yml changed since; "
+                                    "it goes on a new branch", "yellow"))
+                activities.done(n)
+                branch = None
             if branch:
                 print("  " + term.c(f"waiting: yml PR from branch {branch} isn't on main yet", "yellow"))
             elif yml_out is not None:

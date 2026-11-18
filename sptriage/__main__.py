@@ -40,7 +40,7 @@ def main(argv=None):
     s.add_argument("numbers", nargs="*", type=int)
     s.add_argument("-v", action="store_true", help="show OP diffs, comment text and why")
 
-    s = sub.add_parser("approve", help="tick plans in review/*.md: queue names (close, comment, labels, decide), numbers, or all")
+    s = sub.add_parser("approve", help="tick plans in review/*.md: queue names (close, comment, labels, decide, waiting, changes, merge, unopened, closed, merged), numbers, or all")
     s.add_argument("targets", nargs="+")
     s = sub.add_parser("unapprove", help="untick plans in review/*.md")
     s.add_argument("targets", nargs="+")

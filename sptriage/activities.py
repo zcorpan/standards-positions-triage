@@ -199,9 +199,18 @@ def prepare(changes):
     for plan_id, *_ in changes:
         st[str(plan_id)] = branch
     p.write_text(json.dumps(st, indent=1) + "\n")
-    cmds = [f"git -C {wt} push -u origin {branch}",
-            _pr_create(branch, commits)]
-    return branch, wt, cmds
+    return branch, wt, [_push(wt, branch), _pr_create(branch, commits)]
+
+
+def _push(wt, branch):
+    return f"git -C {wt} push -u origin {branch}"
+
+
+def pr_commands(branch):
+    """The push and `gh pr create` commands for a yml branch `apply` made earlier, rebuilt from its commits."""
+    log = _git(["log", "--reverse", "--format=%s%x00%b%x1e", f"origin/main..{branch}"], check=False).stdout
+    commits = [tuple(x.strip() for x in c.split("\0", 1)) for c in log.split("\x1e") if c.strip()]
+    return [_push(config.cache_dir() / "sp-worktree" / branch, branch), _pr_create(branch, commits)]
 
 
 def _pr_create(branch, commits):

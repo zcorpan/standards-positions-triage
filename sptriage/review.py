@@ -14,6 +14,14 @@ from . import activities, config, sync, term, untrusted
 from . import plan as planmod
 
 QUEUES = {
+    "changes": ("PR needs changes", "The yml PR has requested changes or new comments; address them on the PR."),
+    "merge": ("PR ready to merge", "The yml PR is approved; merge it, then `apply` finishes these."),
+    "unopened": ("PR not opened", "The yml change is committed on a branch, but there's no PR for it; run the commands "
+                                  "to push the branch and open one."),
+    "closed": ("PR closed", "The yml PR was closed without merging; read why. The GitHub edits are already applied: "
+                            "edit the plan's yml to retry on a new branch, or revert the edits and delete the plan."),
+    "merged": ("PR merged", "The yml PR is merged; `apply` finishes these."),
+    "waiting": ("Waiting", "The yml PR is open with nothing new, or not opened yet; nothing to do until it's reviewed."),
     "close": ("Close", "Adds labels and closes; no comment."),
     "comment": ("Comment", "Posts a comment, which notifies the people it mentions."),
     "labels": ("Labels", "Labels, status or OP edits only."),
@@ -21,7 +29,7 @@ QUEUES = {
     "errors": ("Errors", "Can't be applied until the plan is fixed."),
 }
 NEW_LABELS = "new-labels"
-HELD = {"quiet", "attention", "merge"}  # yml PR still open: nothing for `apply` to do yet
+HELD = {"quiet", "unopened", "attention", "merge"}  # yml PR not merged yet: nothing for `apply` to do
 ENTRY = re.compile(r"^- \[([ xX])\] .*<!-- plan (\S+) (\w+) -->\s*$")
 
 
@@ -47,13 +55,13 @@ class Entry:
 
     @property
     def pr_kind(self):
-        """Where a plan waiting on its yml PR stands: "quiet" (open, nothing new, or no PR yet), "attention" (changes
+        """Where a plan waiting on its yml PR stands: "quiet" (open, nothing new), "unopened" (no PR yet), "attention" (changes
         requested or new comments), "merge" (approved), "closed" (unmerged), or None (merged, unknown, not waiting)."""
         pr = self.pr if self.waiting else None
         if pr is None or pr.get("state") == "MERGED":
             return None
         if not pr:
-            return "quiet"
+            return "unopened"
         if pr["state"] == "CLOSED":
             return "closed"
         if pr["decision"] == "CHANGES_REQUESTED" or pr["new"]:
@@ -67,6 +75,15 @@ class Entry:
         if self.id == NEW_LABELS:
             return True
         return any(not o.noop for o in planmod.ops(self.plan, self.issue, self.parent)) or bool(self.plan.get("close"))
+
+
+def _pr_queue(e):
+    """The PR-state queue for a plan waiting on its yml PR, or None to keep its normal queue."""
+    if not e.waiting or e.pr is None:
+        return None
+    if e.pr.get("state") == "MERGED":
+        return "merged"
+    return {"attention": "changes", "merge": "merge", "quiet": "waiting", "unopened": "unopened", "closed": "closed"}.get(e.pr_kind)
 
 
 def _after_merge(e):
@@ -83,12 +100,13 @@ def waiting_note(e):
     if pr is None:
         return f"waiting: yml PR from branch {e.waiting} isn't on main yet; `apply` finishes it"
     if not pr:
-        return f"waiting: no PR from branch {e.waiting} yet; push it and open one"
+        return f"no PR from branch {e.waiting} yet; push it and open one:"
     n, then = f"PR #{pr['number']}", _after_merge(e)
     if pr["state"] == "MERGED":
         return f"{n} is merged; `apply` will: {then}"
     if k == "closed":
-        return f"{n} was closed without merging; fix the plan's yml or unapprove it"
+        return (f"{n} was closed without merging; read why at {pr['url']}, then edit the plan's yml to retry "
+                f"on a new branch, or revert the edits on GitHub and delete the plan")
     if k == "attention":
         bits = (["changes requested"] if pr["decision"] == "CHANGES_REQUESTED" else []) + \
                ([f"{pr['new']} new comment(s)"] if pr["new"] else [])
@@ -99,9 +117,12 @@ def waiting_note(e):
     return f"waiting: {n} is open, no reviews or new comments; once it's merged, `apply` will: {then}"
 
 
-def _note(e):
-    color = {"closed": ("red", "bold"), "attention": ("cyan", "bold"), "merge": ("green", "bold")}.get(e.pr_kind, ("yellow",))
-    return term.c(waiting_note(e), *color)
+def _note(e, indent="  "):
+    """The colored note, plus the push and PR commands when the PR isn't open yet."""
+    color = {"closed": ("red", "bold"), "attention": ("cyan", "bold"), "merge": ("green", "bold"),
+             "unopened": ("cyan", "bold")}.get(e.pr_kind, ("yellow",))
+    cmds = activities.pr_commands(e.waiting) if e.pr_kind == "unopened" else []
+    return "\n".join([term.c(waiting_note(e), *color)] + [indent + "  " + c for c in cmds])
 
 
 def plan_hash(obj):
@@ -130,8 +151,10 @@ def entries(nums=None, issues=None):
         except (planmod.PlanError, json.JSONDecodeError) as e:
             out.append(Entry(str(n), "errors", "", {"issue": n}, None, [str(e)]))
             continue
-        out.append(Entry(str(n), planmod.queue_of(plan, issue, errs, parent), plan_hash(plan), plan, issue, errs, warns,
-                         parent))
+        e = Entry(str(n), planmod.queue_of(plan, issue, errs, parent), plan_hash(plan), plan, issue, errs, warns, parent)
+        if e.queue != "errors":
+            e.queue = _pr_queue(e) or e.queue
+        out.append(e)
     lp = planmod.path("labels")
     if lp.exists() and not nums:
         spec = json.loads(lp.read_text())
@@ -158,6 +181,8 @@ def _entry_md(e, ticked, changed):
     for d in detail:
         d = untrusted.term_safe(d).replace("<!--", "<\\!--")  # a quoted OP line can't fake an entry marker
         lines.append(("  > " + d[2:]) if d.startswith("| ") else f"  - {d}")
+    if e.waiting and e.pr_kind == "unopened":
+        lines += ["  ```sh", *("  " + c for c in activities.pr_commands(e.waiting)), "  ```"]
     lines += [f"  - warning: {w}" for w in e.warns]
     lines += [f"  - **ERROR: {x}**" for x in e.errs]
     return lines
@@ -212,7 +237,7 @@ def show(nums=None, verbose=False):
             out += term.url_lines(term.issue_url(int(e.id)), "        ")
             out.append(f"        {planmod.summary(e.plan, e.issue, e.parent)}")
             if e.waiting:
-                out.append("        " + _note(e))
+                out.append("        " + _note(e, "        "))
             if verbose:
                 out += ["          " + l for l in planmod.details(e.plan, e.issue, e.parent)]
             out += ["        " + term.c(f"warning: {w}", "yellow") for w in e.warns]
@@ -365,7 +390,7 @@ def interactive(nums=None):
         k = e.pr_kind
         if k in HELD:
             print(f"{term.issue(int(e.id))} {e.issue['title'][:60]}\n  {_note(e)}")
-            if k == "quiet":
+            if k in ("quiet", "unopened"):
                 i += 1
                 continue
             ans = input("[o]pen PR [s]kip [q]uit ").strip().lower()[:1]

@@ -223,6 +223,7 @@ class ReviewTests(unittest.TestCase):
                   mock.patch("sptriage.sync.assignable", return_value=set()),
                   mock.patch("sptriage.sync.load_issues", return_value={7: ISSUE}),
                   mock.patch("sptriage.review._issues", return_value={7: ISSUE}),
+                  mock.patch("sptriage.activities.pr_commands", return_value=["git push b", "gh pr create b"]),
                   mock.patch("sptriage.activities.entries", return_value={})):
             x.start()
             self.addCleanup(x.stop)
@@ -279,7 +280,7 @@ class ReviewTests(unittest.TestCase):
         review.approve(["7"])
         cases = ((self.pr(), "once it's merged, `apply` will: +position: positive · close (completed)"), (self.pr(new=2), "2 new comment(s)"),
                  (self.pr(decision="CHANGES_REQUESTED"), "changes requested"),
-                 (self.pr(decision="APPROVED"), "approved: merge it"), ({}, "no PR from branch"))
+                 (self.pr(decision="APPROVED"), "approved: merge it"), ({}, "no PR from branch b yet"))
         for status, note in cases:
             with mock.patch("sptriage.activities.branch_for", return_value="b"), \
                     mock.patch("sptriage.activities.pr_status", return_value=status), \
@@ -290,6 +291,21 @@ class ReviewTests(unittest.TestCase):
             inp.assert_not_called()
             self.assertIn(note, out.getvalue())
             self.assertIn("waiting for a yml PR 1", out.getvalue())
+            self.assertEqual("gh pr create b" in out.getvalue(), status == {})
+
+    def test_waiting_plans_get_pr_queues(self):
+        cases = ((self.pr(), "waiting"), ({}, "unopened"), (self.pr(new=1), "changes"),
+                 (self.pr(decision="APPROVED"), "merge"), (self.pr(state="MERGED"), "merged"),
+                 (self.pr(state="CLOSED"), "closed"), (None, "close"))
+        for status, q in cases:
+            with mock.patch("sptriage.activities.branch_for", return_value="b"), \
+                    mock.patch("sptriage.activities.pr_status", return_value=status):
+                self.assertEqual(review.entries(None, {7: ISSUE})[0].queue, q, status)
+        with mock.patch("sptriage.activities.branch_for", return_value="b"), \
+                mock.patch("sptriage.activities.pr_status", return_value=self.pr()):
+            self.assertIn("Waiting (1)", review.show())
+            review.approve(["waiting"])
+            self.assertIn("- [x] [#7]", (config.review_dir() / "waiting.md").read_text())
 
     def test_merged_or_unknown_yml_pr_applies(self):
         review.show()
@@ -447,7 +463,7 @@ class PhasedApplyTests(unittest.TestCase):
                   mock.patch("sptriage.gh.run", side_effect=lambda a, input=None: self.calls.append(a)),
                   mock.patch("sptriage.activities.fetch"),
                   mock.patch("sptriage.activities.entries", return_value={3: ("Three", {"issue": 3, "position": "neutral"})}),
-                  mock.patch("sptriage.activities.matches", side_effect=lambda n, y: self.on_main)):
+                  mock.patch("sptriage.activities.matches", side_effect=lambda n, y, ref="origin/main": self.on_main)):
             x.start()
             self.addCleanup(x.stop)
         plan.save(7, {"issue": 7, "base_updated_at": ISSUE["updated"], "close": {"reason": "duplicate", "duplicate_of": 3},
@@ -472,6 +488,24 @@ class PhasedApplyTests(unittest.TestCase):
         self.assertEqual(self.calls, [["issue", "close", "7", "-R", config.REPO, "--duplicate-of", "3"]])
         self.assertFalse(plan.path(7).exists())
 
+    def test_closed_pr_rebranches_only_after_the_yml_changes(self):
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(plan.apply(7, write=True, yml_out=[]), "waiting")  # the GitHub edits
+        self.par = {**self.par, "labels": ["position: positive"], "updated": "2026-02-01T00:00:00Z",
+                    "comments": [{"author": "me", "body": "See #7.", "at": "x"}]}
+        on_branch = {"b": True}
+        closed = {"number": 9, "url": "u", "state": "CLOSED", "decision": None, "new": 0}
+        for edited, rebranch in ((False, False), (True, True)):
+            on_branch["b"] = not edited
+            yml = []
+            with mock.patch("sptriage.activities.branch_for", return_value="b"), \
+                    mock.patch("sptriage.activities.pr_status", return_value=closed), \
+                    mock.patch("sptriage.activities.matches", side_effect=lambda n, y, ref="origin/main": on_branch.get(ref, False)), \
+                    mock.patch("sptriage.activities.done") as done, redirect_stdout(io.StringIO()):
+                self.assertEqual(plan.apply(7, write=True, yml_out=yml), "waiting")
+            self.assertEqual(done.called, rebranch)
+            self.assertEqual(len(yml), int(rebranch))
+
     def test_prepare_branch(self):
         import subprocess
         root = Path(self.tmp.name)
@@ -492,6 +526,7 @@ class PhasedApplyTests(unittest.TestCase):
             self.assertEqual(log.strip(), "Three (positive)\nSee #7.")
             self.assertNotIn("--fill", cmds[1])  # `--fill` reads the cwd's repo, not the worktree
             self.assertIn("--title 'Three (positive)' --body 'See #7.'", cmds[1])
+            self.assertEqual(activities.pr_commands(branch), cmds)  # rebuilt later, when no PR was opened
             self.assertIn("neutral", (sp / "activities.yml").read_text())  # the user's checkout is untouched
             activities.done(7)
             self.assertFalse(wt.exists())
