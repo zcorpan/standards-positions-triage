@@ -55,8 +55,8 @@ def get_feature_id(text):
             if url.startswith(prefix):
                 text = url.split("#", 1)[0].split("?", 1)[0][len(prefix):].split("/", 1)[0]
                 break
-    m = re.search(r"[a-z][a-zA-Z0-9\-]+", text)
-    return m.group() if m else None
+    m = re.fullmatch(r"`?([a-z][a-z0-9-]*)`?", text.strip())  # the whole value, so "None yet" isn't an id
+    return m.group(1) if m else None
 
 
 def is_empty(value):

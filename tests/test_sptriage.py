@@ -67,6 +67,7 @@ class BodyTests(unittest.TestCase):
     def test_feature_id(self):
         self.assertEqual(body.get_feature_id("https://webstatus.dev/features/anchor-positioning?q=1"), "anchor-positioning")
         self.assertEqual(body.get_feature_id("`view-transitions`"), "view-transitions")
+        self.assertIsNone(body.get_feature_id("None yet"))
 
     def test_spec_key(self):
         k = webfeatures.spec_key
