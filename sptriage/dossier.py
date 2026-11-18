@@ -62,6 +62,13 @@ def hints(issue, ctx, cs_feature=None, wf=None):
     return out
 
 
+def _known_feature(fid):
+    try:
+        return webfeatures.resolve(fid) is not None
+    except Exception:  # web-features unavailable: don't call a value bad
+        return True
+
+
 def _yml_lines(n, heading):
     try:
         key, e = activities.entry(n)
@@ -157,9 +164,12 @@ def build(number, ctx, refresh=True):
         lines.append(f"(timeline unavailable: {e})")
 
     lines.append("\n## OP fields" + ("" if b.form else " (legacy template)" if b.fields else " (no template fields)"))
+    bad_wf = bool(b.value("web-feature")) and not _known_feature(b.value("web-feature"))
     for fid, v in b.values().items():
         raw = (b.fields.get(fid) or {}).get("raw", "")
         shown = v or (f"(missing; raw: {q(raw, 80)})" if raw and not bodymod.is_empty(raw) else "(missing)")
+        if fid == "web-feature" and bad_wf:
+            v, shown = "", f"(not a web-features id: {q(v)}, from raw {q(raw, 80)}; the dashboard shows it as is)"
         lines.append(f"- {fid}: {q(shown, 300) if v else shown}")
     t = bodymod.clean_title(issue["title"])
     if t:
@@ -218,8 +228,8 @@ def build(number, ctx, refresh=True):
     fill = {}
     if not b.value("webkit-standards-position") and feat and (feat["safari"]["url"] or "").startswith("https://github.com/WebKit/standards-positions/"):
         fill["webkit-standards-position"] = f"{q(feat['safari']['url'])} (chromestatus)"
-    if not b.value("web-feature"):
-        if feat and feat.get("web_feature"):
+    if not b.value("web-feature") or bad_wf:
+        if feat and feat.get("web_feature") and _known_feature(feat["web_feature"]):
             fill["web-feature"] = f"{q(feat['web_feature'])} (chromestatus)"
         elif len(wf["features"]) == 1 and not wf["features"][0]["why"].startswith("guess"):
             fill["web-feature"] = f"{wf['features'][0]['id']} ({wf['features'][0]['why']}; check)"
@@ -244,8 +254,9 @@ def build(number, ctx, refresh=True):
     lines.append(f"- venue: {h['venue'] or '?'} · topics: {', '.join(h['topics']) or '?'} · teams: {', '.join(h['teams']) or '?'}"
                  + (f" · no team label for: {', '.join(h['team_gaps'])}" if h["team_gaps"] else "")
                  + (f" · no topic label for BCD {', '.join(h['topic_gaps'])}" if h["topic_gaps"] else ""))
-    concerns = sorted(l[len("concerns: "):] for l in sync.repo_labels() if l.startswith("concerns: "))
-    lines.append(f"- existing concerns: labels: {', '.join(concerns)}")
+    for pre in ("venue", "topic", "team", "concerns"):
+        names = sorted(l[len(pre) + 2:] for l in sync.repo_labels() if l.startswith(pre + ": "))
+        lines.append(f"- existing {pre}: labels: {', '.join(names)}")
     for o in h["ownership"]:
         lines.append(f"- gecko: {o['via']} → {o.get('component') or '?'} ({o.get('team') or '?'}){' · ' + o['path'] if o.get('path') else ''}")
 
