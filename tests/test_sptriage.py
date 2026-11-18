@@ -280,7 +280,8 @@ class ReviewTests(unittest.TestCase):
         review.approve(["7"])
         cases = ((self.pr(), "waiting for a yml PR 1: #7"), (self.pr(new=2), "2 new comment(s)"),
                  (self.pr(decision="CHANGES_REQUESTED"), "changes requested"),
-                 (self.pr(decision="APPROVED"), "approved: merge it"), ({}, "no PR from branch b yet"))
+                 (self.pr(decision="APPROVED"), "approved: merge it"), ({}, "no PR from branch b yet"),
+                 (self.pr(requested=0, reviewed=False), "no review requested: request one at"))
         for status, note in cases:
             with mock.patch("sptriage.activities.branch_for", return_value="b"), \
                     mock.patch("sptriage.activities.pr_status", return_value=status), \
@@ -308,6 +309,7 @@ class ReviewTests(unittest.TestCase):
 
     def test_waiting_plans_get_pr_queues(self):
         cases = ((self.pr(), "waiting"), ({}, "unopened"), (self.pr(new=1), "changes"),
+                 (self.pr(requested=0, reviewed=False), "changes"), (self.pr(requested=1, reviewed=False), "waiting"),
                  (self.pr(decision="APPROVED"), "merge"), (self.pr(state="MERGED"), "merged"),
                  (self.pr(state="CLOSED"), "closed"), (None, "close"))
         for status, q in cases:
@@ -391,7 +393,9 @@ class YmlTests(unittest.TestCase):
     def setUp(self):
         labels = {l: {} for l in ("topic: CSS", "position: positive", "position: neutral", "duplicate", "invalid")}
         for x in (mock.patch("sptriage.sync.repo_labels", return_value=labels),
-                  mock.patch("sptriage.sync.assignable", return_value=set())):
+                  mock.patch("sptriage.sync.assignable", return_value=set()),
+                  mock.patch("sptriage.sync.org_members", return_value={"emilio"}),
+                  mock.patch("sptriage.sync.contributor_team", return_value=set())):
             x.start()
             self.addCleanup(x.stop)
 
@@ -403,16 +407,27 @@ class YmlTests(unittest.TestCase):
         pos = dict(labels_add=["position: positive"], close={"reason": "completed"})
         errs, _ = self.lint(YML_ENTRY, **pos)
         self.assertIn("overrides the label", errs[0])
-        errs, warns = self.lint(YML_ENTRY, **pos, yml={"position": "positive"})
+        errs, warns = self.lint(YML_ENTRY, **pos, yml={"position": "positive", "reviewers": ["emilio"]})
         self.assertEqual(errs, [])
         self.assertIn("rationale that may be stale", warns[0])
-        errs, warns = self.lint(YML_ENTRY, **pos, yml={"position": "positive", "rationale": "New."})
+        errs, warns = self.lint(YML_ENTRY, **pos, yml={"position": "positive", "rationale": "New.", "reviewers": ["emilio"]})
         self.assertEqual((errs, [w for w in warns if "yml" in w]), ([], []))
         self.assertIn("doesn't match", self.lint(YML_ENTRY, **pos, yml={"position": "negative"})[0][0])
         _, warns = self.lint(YML_ENTRY, labels_add=["duplicate"], close={"reason": "duplicate", "duplicate_of": 3})
         self.assertTrue(any("dropped from the dashboard" in w for w in warns))
         errs, warns = self.lint({}, **pos)
         self.assertEqual((errs, [w for w in warns if "yml" in w]), ([], []))
+
+    def test_pr_keys(self):
+        pos = dict(labels_add=["position: positive"], close={"reason": "completed"})
+        errs, warns = self.lint(YML_ENTRY, **pos, yml={"position": "positive", "rationale": "R.", "area": "nope",
+                                                       "reviewers": ["emilio", "mallory"]})
+        self.assertEqual(errs, ["yml.reviewers: mallory isn't a Mozillian (org, assignable, or data/people.yml)",
+                                f"yml.area must be one of {sorted(data.pr_leads()['areas'])}"])
+        _, warns = self.lint(YML_ENTRY, **pos, yml={"position": "positive", "rationale": "R."})
+        self.assertTrue(any("names no reviewers" in w for w in warns))
+        with mock.patch("sptriage.activities.entry", return_value=("Seven", {"issue": 7, "position": "positive"})):
+            self.assertTrue(activities.matches(7, {"position": "positive", "reviewers": ["x"], "area": "css"}))
 
     def test_duplicate_close(self):
         self.assertIn("needs duplicate_of", self.lint({}, close={"reason": "duplicate"})[0][0])
@@ -473,6 +488,8 @@ class PhasedApplyTests(unittest.TestCase):
                   mock.patch("sptriage.sync.assignable", return_value=set()),
                   mock.patch("sptriage.sync.refresh_issue", side_effect=refresh),
                   mock.patch("sptriage.gh.viewer", return_value="me"),
+                  mock.patch("sptriage.sync.viewer", return_value="me"),
+                  mock.patch("sptriage.sync.leads_team", return_value={"zcorpan", "tantek", "martinthomson"}),
                   mock.patch("sptriage.gh.run", side_effect=lambda a, input=None: self.calls.append(a)),
                   mock.patch("sptriage.activities.fetch"),
                   mock.patch("sptriage.activities.entries", return_value={3: ("Three", {"issue": 3, "position": "neutral"})}),
@@ -532,18 +549,41 @@ class PhasedApplyTests(unittest.TestCase):
             git(*a, cwd=sp)
         with mock.patch.dict(config.CONF, {"sp_path": str(sp)}), \
                 mock.patch.dict("os.environ", {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}):
-            branch, wt, cmds = activities.prepare([(7, 3, {"position": "positive"}, "T", 7)])
+            with mock.patch("sptriage.sync.assignable", return_value={"emilio", "tantek"}):
+                branch, wt, cmds = activities.prepare([(7, 3, {"position": "positive", "reviewers": ["hafta", "emilio"]},
+                                                        "T", 7, ["topic: CSS"])])
             self.assertEqual(activities.branch_for(7), branch)
             self.assertIn("position: positive", (wt / "activities.yml").read_text())
             log = subprocess.run(["git", "log", "-1", "--format=%s%n%b", branch], cwd=sp, capture_output=True, text=True).stdout
             self.assertEqual(log.strip(), "Three (positive)\nSee #7.")
             self.assertNotIn("--fill", cmds[1])  # `--fill` reads the cwd's repo, not the worktree
-            self.assertIn("--title 'Three (positive)' --body 'See #7.'", cmds[1])
+            self.assertIn("--title 'Three (positive)' --body 'See #7.\n\ncc @hafta' --reviewer emilio,tantek", cmds[1])
             self.assertEqual(activities.pr_commands(branch), cmds)  # rebuilt later, when no PR was opened
             self.assertIn("neutral", (sp / "activities.yml").read_text())  # the user's checkout is untouched
             activities.done(7)
             self.assertFalse(wt.exists())
             self.assertIsNone(activities.branch_for(7))
+
+
+class PrPeopleTests(unittest.TestCase):
+    def people(self, changes, me="me", assignable=("emilio", "zcorpan", "tantek", "martinthomson")):
+        with mock.patch("sptriage.sync.viewer", return_value=me), \
+                mock.patch("sptriage.sync.leads_team", return_value={"zcorpan", "tantek", "martinthomson", "bgrins"}), \
+                mock.patch("sptriage.sync.assignable", return_value=set(assignable)):
+            return activities.pr_people(changes)
+
+    def test_lead_by_area(self):
+        cases = (({}, [], "me", "zcorpan"), ({}, [], "zcorpan", "tantek"), ({}, ["topic: CSS"], "me", "tantek"),
+                 ({"area": "privacy"}, ["topic: CSS"], "me", "martinthomson"),
+                 ({"area": "privacy"}, [], "martinthomson", "zcorpan"), ({"area": "css"}, [], "tantek", "zcorpan"))
+        for y, labels, me, lead in cases:
+            self.assertEqual(self.people([(y, labels)], me), ([lead], []), (y, labels, me))
+
+    def test_named_reviewers(self):
+        self.assertEqual(self.people([({"reviewers": ["emilio", "hafta", "me"]}, [])]), (["emilio", "zcorpan"], ["hafta"]))
+        self.assertEqual(self.people([({"reviewers": ["martinthomson"], "area": "css"}, [])]), (["martinthomson"], []))
+        self.assertEqual(self.people([({"reviewers": ["emilio"]}, ["topic: CSS"]), ({"area": "css"}, [])]),
+                         (["emilio", "tantek"], []))
 
 
 class PrStatusTests(unittest.TestCase):
@@ -567,6 +607,7 @@ class PrStatusTests(unittest.TestCase):
                                      reviews=[("2026-01-05T00:00:00Z", "y", "COMMENTED"),
                                               ("2026-01-05T00:00:00Z", "z", "APPROVED")]))["new"], 2)
         self.assertEqual(s(self.data(decision="APPROVED"))["decision"], "APPROVED")
+        self.assertEqual((s(self.data())["requested"], s(self.data())["reviewed"]), (0, False))
 
 
 # Third-party text that tries to steer the model, fake structure, hide from readers, or reach the terminal.

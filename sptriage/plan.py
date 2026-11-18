@@ -151,6 +151,26 @@ def text_problems(t):
     return out
 
 
+def _pr_key_problems(y, warns):
+    """Errors in `yml.reviewers` and `yml.area`; warns when a yml change names no reviewer."""
+    if not y:
+        return []
+    errs, who = [], y.get("reviewers")
+    if who is not None and not (isinstance(who, list) and all(isinstance(x, str) for x in who)):
+        return ["yml.reviewers must be a list of logins"]
+    if who:
+        moz = {x.lower() for x in sync.org_members() | sync.assignable() | sync.contributor_team() | set(data.people())}
+        errs += [f"yml.reviewers: {x} isn't a Mozillian (org, assignable, or data/people.yml)" for x in who
+                 if x.lower() not in moz]
+    areas = data.pr_leads()["areas"]
+    if "area" in y and y["area"] not in areas:
+        errs.append(f"yml.area must be one of {sorted(areas)}")
+    if not who and set(y) & activities.YML_KEYS:
+        warns.append("yml names no reviewers (the Mozillians who proposed the position or raised concerns); "
+                     "only a lead will be requested")
+    return errs
+
+
 def mentionable(issue):
     """Lowercased logins a comment may @-mention: Mozillians (org, assignable, people.yml) and people on the issue."""
     on_issue = {issue.get("author"), *issue.get("participants", []), *(c["author"] for c in issue.get("comments", []))}
@@ -228,13 +248,15 @@ def validate(plan, issue, labels_planned=(), parent=None, plan_id=None):
         errs.append("OP has no template fields; edit by hand or comment instead")
     y = plan.get("yml") if isinstance(plan.get("yml"), dict) else {}
     texts = {"title": plan.get("title"), "comment": plan.get("comment"),
-             **{f"body field {k}": v for k, v in bf.items()}, **{f"yml.{k}": v for k, v in y.items()}}
+             **{f"body field {k}": v for k, v in bf.items()},
+             **{f"yml.{k}": v for k, v in y.items() if k in activities.YML_KEYS}}
     for where, t in texts.items():
         errs += [f"{where}: {x}" for x in text_problems(str(t or ""))]
     for u in URL.findall(plan.get("comment") or ""):
         if not _host_ok(u):
             errs.append(f"comment links {u}: not an allowed host (don't relay links from the thread; cite the "
                         "spec, bug or issue instead)")
+    errs += _pr_key_problems(y, warns)
     who = mentions(plan.get("comment"))
     known = mentionable(issue) if who else set()
     for m in who:
@@ -326,7 +348,8 @@ def _op_text(o, iss):
     elif k == "yml":
         parts = ([term.label(f"position: {v['position']}")] if v.get("position") else []) + \
                 [f for f in ("rationale", "description") if f in v]
-        t = term.c("yml PR: ", "cyan") + ", ".join(parts)
+        t = term.c("yml PR: ", "cyan") + ", ".join(parts) \
+            + (term.c(" → " + " ".join("@" + w for w in v["reviewers"]), "yellow") if v.get("reviewers") else "")
     else:
         r = v.get("reason")
         t = term.c(f"close as duplicate of #{v.get('duplicate_of')}" if r == "duplicate" else f"close ({r})", "bold")
@@ -553,7 +576,9 @@ def apply(n, write=False, yml_out=None, brief=False):
         print("  " + term.c(f"#{n}: GitHub doesn't match the plan; stopped before the yml and close", "red", "bold"))
         return "failed"
 
-    want = [(tn, sub["yml"], iss) for tn, sub, iss in targets(plan, issue, parent) if sub.get("yml")]
+    tgts = targets(plan, issue, parent)
+    want = [(tn, sub["yml"], iss) for tn, sub, iss in tgts if sub.get("yml")]
+    labels_of = {tn: sorted(final_labels(sub, iss)) for tn, sub, iss in tgts}
     if want:
         activities.fetch()
         missing = [(tn, y, iss) for tn, y, iss in want if not activities.matches(tn, y)]
@@ -571,7 +596,8 @@ def apply(n, write=False, yml_out=None, brief=False):
             if branch:
                 print("  " + term.c(f"waiting: yml PR from branch {branch} isn't on main yet", "yellow"))
             elif yml_out is not None:
-                yml_out += [(n, tn, y, bodymod.clean_title(iss["title"]) or iss["title"], n) for tn, y, iss in missing]
+                yml_out += [(n, tn, y, bodymod.clean_title(iss["title"]) or iss["title"], n, labels_of[tn])
+                            for tn, y, iss in missing]
             return "waiting"
 
     if plan.get("close") and issue["state"] != "CLOSED":

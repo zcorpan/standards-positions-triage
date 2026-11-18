@@ -87,3 +87,27 @@ bmo_teams:
 # Labels whose team mapping is ambiguous (reported by `labels`, never auto-renamed).
 ambiguous:
   "team: DOM": "covers both BMO teams DOM Core and DOM LWS"
+
+# Who of mozilla/standards-positions-leads reviews a yml PR, by the subject area the plan's `yml.area` names or a
+# topic label implies (from past approvals of activities.yml/json PRs). Never the PR author: `default` takes over,
+# then `author_default`.
+pr_leads:
+  default: zcorpan
+  author_default: tantek
+  areas:
+    privacy: martinthomson
+    security: martinthomson
+    networking: martinthomson  # HTTP, IETF, transport
+    identity: martinthomson
+    devices: martinthomson  # hardware and device-access APIs
+    css: tantek
+    html: tantek  # markup, not DOM APIs
+    accessibility: tantek
+    i18n: tantek
+    media: tantek  # formats, codecs, playback
+  topics:
+    "topic: HTTP": networking
+    "topic: CSS": css
+    "topic: HTML": html
+    "topic: SVG": css
+    "topic: MathML": html

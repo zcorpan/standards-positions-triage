@@ -15,6 +15,7 @@ from .http import get
 LEGACY_MAX = 1110  # issues below this may keep `position` in the yml, where it overrides the label
 RAW = "https://raw.githubusercontent.com/mozilla/standards-positions/main/activities.yml"
 YML_KEYS = {"position", "rationale", "description"}
+PR_KEYS = {"reviewers", "area"}  # for the PR, not activities.yml
 POSITIONS = {"positive", "neutral", "negative", "defer"}
 REMOVES = ("duplicate", "invalid", "proposal withdrawn")
 
@@ -88,7 +89,7 @@ def matches(n, want, ref="origin/main"):
     _, e = entry(n, ref)
     if e is None:
         return False
-    return all(str(e.get(k) or "").strip() == str(v or "").strip() for k, v in want.items())
+    return all(str(e.get(k) or "").strip() == str(v or "").strip() for k, v in want.items() if k in YML_KEYS)
 
 
 def _positions(labels):
@@ -99,8 +100,8 @@ def needs(sub, n, ref="origin/main"):
     """(errs, warns) for one target of a plan: does resolving it need a yml change the plan lacks?"""
     errs, warns = [], []
     y = sub.get("yml") or {}
-    if not isinstance(y, dict) or set(y) - YML_KEYS:
-        return [f"yml must be an object with keys from {sorted(YML_KEYS)}"], []
+    if not isinstance(y, dict) or set(y) - YML_KEYS - PR_KEYS:
+        return [f"yml must be an object with keys from {sorted(YML_KEYS | PR_KEYS)}"], []
     try:
         key, e = entry(n, ref)
     except Exception as ex:  # no checkout and no network: say so, don't block unrelated plans
@@ -124,7 +125,7 @@ def needs(sub, n, ref="origin/main"):
     if e is not None and closes_out:
         warns.append(f"activities.yml {key!r} will be dropped from the dashboard by this close; remove the entry by hand "
                      "if it shouldn't stay")
-    if y and e is None and not y.get("rationale") and not y.get("description"):
+    if set(y) & YML_KEYS and e is None and not y.get("rationale") and not y.get("description"):
         errs.append(f"#{n} has no activities.yml entry; a new one needs yml.rationale or yml.description")
     return errs, warns
 
@@ -159,9 +160,33 @@ def edit_file(path, n, y, title=None):
     return key
 
 
-def _state():
-    p = config.state_dir() / "yml-branches.json"
+def _state(name="yml-branches"):
+    p = config.state_dir() / f"{name}.json"
     return p, (json.loads(p.read_text()) if p.exists() else {})
+
+
+def pr_people(changes):
+    """(review, cc) logins for a yml PR. `changes`: [(yml block, the target's labels after the plan)].
+    The Mozillians each `yml.reviewers` names, plus a lead by `yml.area` or topic label unless one of those is a
+    lead; never the PR author. Those who can't be requested (not assignable) are cc'd in the body instead."""
+    from . import data, sync
+    conf = data.pr_leads()
+    me, leads, assignable = sync.viewer().lower(), sync.leads_team(), sync.assignable()
+
+    def lead(area):
+        for x in (conf["areas"].get(area), conf["default"], conf["author_default"]):
+            if x and x.lower() != me and (x in leads or not leads):
+                return x
+
+    out = []
+    for y, labels in changes:
+        named = [x for x in y.get("reviewers") or [] if x.lower() != me]
+        out += named
+        if not set(named) & leads:
+            area = y.get("area") or next((conf["topics"][l] for l in sorted(labels) if l in conf["topics"]), None)
+            out.append(lead(area))
+    out = list(dict.fromkeys(x for x in out if x))
+    return [x for x in out if x in assignable], [x for x in out if x not in assignable]
 
 
 def branch_for(plan_id):
@@ -170,7 +195,8 @@ def branch_for(plan_id):
 
 def prepare(changes):
     """Commit yml changes on one new branch in a worktree under .cache/sp-worktree/.
-    `changes`: [(plan_id, n, yml, title, see)] where `see` is the issue the commit body points at.
+    `changes`: [(plan_id, n, yml, title, see, labels)] where `see` is the issue the commit body points at and
+    `labels` are the target's labels after the plan (for picking a lead to review).
     Returns (branch, worktree, commands for the user)."""
     sp = checkout()
     if not sp:
@@ -183,7 +209,7 @@ def prepare(changes):
     _git(["worktree", "add", "-q", "-b", branch, str(wt), "origin/main"])
     commits = []
     try:
-        for _, n, y, title, see in changes:
+        for _, n, y, title, see, *_ in changes:
             key = edit_file(wt / "activities.yml", n, y, title)
             v = subprocess.run(["python3", "activities.py", "validate", "--fix"], cwd=wt, capture_output=True, text=True)
             if v.returncode != 0:
@@ -199,7 +225,11 @@ def prepare(changes):
     for plan_id, *_ in changes:
         st[str(plan_id)] = branch
     p.write_text(json.dumps(st, indent=1) + "\n")
-    return branch, wt, [_push(wt, branch), _pr_create(branch, commits)]
+    review, cc = pr_people([(y, set(rest[0]) if rest else set()) for _, _, y, _, _, *rest in changes])
+    p, st = _state("yml-reviewers")
+    st[branch] = {"review": review, "cc": cc}
+    p.write_text(json.dumps(st, indent=1) + "\n")
+    return branch, wt, [_push(wt, branch), _pr_create(branch, commits, review, cc)]
 
 
 def _push(wt, branch):
@@ -210,10 +240,12 @@ def pr_commands(branch):
     """The push and `gh pr create` commands for a yml branch `apply` made earlier, rebuilt from its commits."""
     log = _git(["log", "--reverse", "--format=%s%x00%b%x1e", f"origin/main..{branch}"], check=False).stdout
     commits = [tuple(x.strip() for x in c.split("\0", 1)) for c in log.split("\x1e") if c.strip()]
-    return [_push(config.cache_dir() / "sp-worktree" / branch, branch), _pr_create(branch, commits)]
+    who = _state("yml-reviewers")[1].get(branch, {})
+    return [_push(config.cache_dir() / "sp-worktree" / branch, branch),
+            _pr_create(branch, commits, who.get("review", []), who.get("cc", []))]
 
 
-def _pr_create(branch, commits):
+def _pr_create(branch, commits, review=(), cc=()):
     """`gh pr create` with an explicit title and body: `--fill` reads the local repo, which is the triage
     checkout when the user runs it, not the worktree."""
     if len(commits) == 1:
@@ -221,8 +253,11 @@ def _pr_create(branch, commits):
     else:
         title = "Update activities.yml"
         body = "\n".join(f"- {t}. {b}" for t, b in commits)
+    if cc:
+        body += "\n\ncc " + " ".join("@" + x for x in cc)
     return (f"gh pr create -R {config.REPO} --base main --head {branch} "
-            f"--title {shlex.quote(title)} --body {shlex.quote(body)}")
+            f"--title {shlex.quote(title)} --body {shlex.quote(body)}"
+            + (f" --reviewer {','.join(review)}" if review else ""))
 
 
 PR_QUERY = """query($owner: String!, $name: String!, $branch: String!) {
@@ -230,6 +265,7 @@ PR_QUERY = """query($owner: String!, $name: String!, $branch: String!) {
   repository(owner: $owner, name: $name) {
     pullRequests(headRefName: $branch, last: 1, states: [OPEN, MERGED, CLOSED]) { nodes {
       number url state reviewDecision
+      reviewRequests(first: 1) { totalCount }
       commits(last: 1) { nodes { commit { committedDate } } }
       reviews(last: 20) { nodes { state submittedAt author { login __typename } } }
       comments(last: 50) { nodes { createdAt author { login __typename } } }
@@ -266,7 +302,7 @@ def summarize_pr(data):
     new = sum(1 for t, a, st in events
               if t > since and a and a["login"] != me and a.get("__typename") != "Bot" and st != "APPROVED")
     return {"number": pr["number"], "url": pr["url"], "state": pr["state"], "decision": pr["reviewDecision"] if pr["reviewDecision"] in ("APPROVED", "CHANGES_REQUESTED") else None,
-            "new": new}
+            "new": new, "requested": (pr.get("reviewRequests") or {}).get("totalCount", 0), "reviewed": bool(pr["reviews"]["nodes"])}
 
 
 def done(plan_id):
@@ -274,6 +310,10 @@ def done(plan_id):
     p, st = _state()
     branch = st.pop(str(plan_id), None)
     p.write_text(json.dumps(st, indent=1) + "\n")
+    if branch and branch not in st.values():
+        rp, rs = _state("yml-reviewers")
+        if rs.pop(branch, None) is not None:
+            rp.write_text(json.dumps(rs, indent=1) + "\n")
     if branch and branch not in st.values() and checkout():
         wt = config.cache_dir() / "sp-worktree" / branch
         if wt.exists():

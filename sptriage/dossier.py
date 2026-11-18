@@ -113,6 +113,25 @@ def _comment(c, issue, ctx):
     return untrusted.block(c["body"], MOZ_COMMENT_CAP if moz else COMMENT_CAP, src)
 
 
+def _pr_reviewer_lines(issue, ctx, pn=None):
+    """Who a yml PR would ask: Mozillian proposers here (and on the parent), and the lead area topic labels imply."""
+    issues = [issue] + ([ctx.issues[pn]] if pn else [])
+    who = list(dict.fromkeys(c["author"] for i in issues for _, c, _, _ in checks.proposals(i, ctx)))
+    if not who:
+        return []
+    assignable, conf = sync.assignable(), data.pr_leads()
+    labels = set(issue["labels"]) | (set(ctx.issues[pn]["labels"]) if pn else set())
+    area = next((conf["topics"][l] for l in sorted(labels) if l in conf["topics"]), None)
+    out = ["\n## yml PR reviewers (if the plan adds `yml`)",
+           "- proposed a position: " + ", ".join(f"{w} ({'review' if w in assignable else 'cc: not assignable'})"
+                                                  for w in who)
+           + "; put them and Mozillians whose concerns the position addresses in `yml.reviewers`",
+           f"- lead area from topic labels: {area} → {conf['areas'][area]}" if area else
+           f"- lead area: no topic label implies one; set `yml.area` from {', '.join(conf['areas'])} if one fits "
+           f"(else {conf['default']}, or {conf['author_default']} when {conf['default']} is the author)"]
+    return out
+
+
 def build(number, ctx, refresh=True):
     issue = sync.refresh_issue(number) if refresh else ctx.issues[number]
     ctx.issues[number] = issue
@@ -159,6 +178,7 @@ def build(number, ctx, refresh=True):
         lines.append(f"- labels: {', '.join(par['labels']) or '-'} · status {par['status']} · closed {(par.get('closed') or '-')[:10]}"
                      f" · base_updated_at {par['updated']} (for `parent.base_updated_at`)")
         lines += _yml_lines(pn, None)
+    lines += _pr_reviewer_lines(issue, ctx, pn)
     dups = similar(issue, ctx)
     if dups:
         lines.append("\n## Earlier issues with the same title or spec URL")

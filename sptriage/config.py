@@ -9,6 +9,7 @@ REPO = "mozilla/standards-positions"
 OWNER, NAME = REPO.split("/")
 PROJECT_NUMBER = 262
 CONTRIBUTOR_TEAM = "standards-contributor"
+LEADS_TEAM = "standards-positions-leads"
 STATUSES = [
     "Unscreened",
     "Needs assignees",

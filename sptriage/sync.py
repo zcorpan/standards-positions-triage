@@ -172,6 +172,19 @@ def contributor_team():
     return set(cached("team", DAY, fetch))
 
 
+def leads_team():
+    def fetch():
+        data = gh.api(f"orgs/{config.OWNER}/teams/{config.LEADS_TEAM}/members?per_page=100", paginate=True, check=False)
+        return sorted(u["login"] for u in data or [])
+
+    return set(cached("leads", DAY, fetch))
+
+
+def viewer():
+    """The login `gh` is authenticated as; cached a week."""
+    return cached("viewer", 7 * DAY, gh.viewer)
+
+
 def org_members():
     """Logins in the mozilla GitHub org (private members are visible to a member caller); cached a week."""
 

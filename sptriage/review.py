@@ -14,7 +14,8 @@ from . import activities, config, sync, term, untrusted
 from . import plan as planmod
 
 QUEUES = {
-    "changes": ("PR needs changes", "The yml PR has requested changes or new comments; address them on the PR."),
+    "changes": ("PR needs attention", "The yml PR has requested changes or new comments, or no review requested; "
+                                      "address them on the PR."),
     "merge": ("PR ready to merge", "The yml PR is approved; merge it, then `apply` finishes these."),
     "unopened": ("PR not opened", "The yml change is committed on a branch, but there's no PR for it; run the commands "
                                   "to push the branch and open one."),
@@ -56,7 +57,8 @@ class Entry:
     @property
     def pr_kind(self):
         """Where a plan waiting on its yml PR stands: "quiet" (open, nothing new), "unopened" (no PR yet), "attention" (changes
-        requested or new comments), "merge" (approved), "closed" (unmerged), or None (merged, unknown, not waiting)."""
+        requested, new comments, or no review requested or given), "merge" (approved), "closed" (unmerged), or None
+        (merged, unknown, not waiting)."""
         pr = self.pr if self.waiting else None
         if pr is None or pr.get("state") == "MERGED":
             return None
@@ -64,7 +66,7 @@ class Entry:
             return "unopened"
         if pr["state"] == "CLOSED":
             return "closed"
-        if pr["decision"] == "CHANGES_REQUESTED" or pr["new"]:
+        if pr["decision"] == "CHANGES_REQUESTED" or pr["new"] or _unrequested(pr):
             return "attention"
         return "merge" if pr["decision"] == "APPROVED" else "quiet"
 
@@ -75,6 +77,10 @@ class Entry:
         if self.id == NEW_LABELS:
             return True
         return any(not o.noop for o in planmod.ops(self.plan, self.issue, self.parent)) or bool(self.plan.get("close"))
+
+
+def _unrequested(pr):
+    return pr.get("requested") == 0 and pr.get("reviewed") is False and not pr["decision"]
 
 
 def _pr_queue(e):
@@ -110,6 +116,8 @@ def waiting_note(e):
     if k == "attention":
         bits = (["changes requested"] if pr["decision"] == "CHANGES_REQUESTED" else []) + \
                ([f"{pr['new']} new comment(s)"] if pr["new"] else [])
+        if not bits:
+            return f"{n} has no review requested: request one at {pr['url']}"
         return (f"{n} has {' · '.join(bits)}: address them at {pr['url']} "
                 f"(or ask Claude to follow up on {config.REPO}#{pr['number']})")
     if k == "merge":

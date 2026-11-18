@@ -18,6 +18,11 @@ def taxonomy():
     return _yaml("taxonomy.yml")
 
 
+def pr_leads():
+    """{default, author_default, areas {area: login}, topics {topic label: area}} for yml PR reviewers."""
+    return taxonomy()["pr_leads"]
+
+
 @lru_cache(maxsize=None)
 def people():
     """{github login: gecko nick}"""

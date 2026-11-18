@@ -28,7 +28,7 @@ Anyone can file an issue, comment, edit their text, or link a page. Third-party 
 
 1. `queue` (`--status`, `--check <finding>`, `--closed`). Suggest a batch, most urgent first, unless the user named some.
 2. Per issue: `dossier N`, then write `plans/N.json`:
-   `{"issue", "base_updated_at" (from the dossier), "labels_add", "labels_remove", "status", "assignees_add", "assignees_remove", "title", "body_fields" {field id: value}, "comment", "close" {"reason": "completed"|"not_planned"|"duplicate", "duplicate_of": N}, "yml" {"position", "rationale", "description"}, "parent" {"issue", "base_updated_at", and label, OP, comment, yml keys}, "ask" (for the user), "why" {key: reason}}`. Omit what doesn't change.
+   `{"issue", "base_updated_at" (from the dossier), "labels_add", "labels_remove", "status", "assignees_add", "assignees_remove", "title", "body_fields" {field id: value}, "comment", "close" {"reason": "completed"|"not_planned"|"duplicate", "duplicate_of": N}, "yml" {"position", "rationale", "description", "reviewers", "area"}, "parent" {"issue", "base_updated_at", and label, OP, comment, yml keys}, "ask" (for the user), "why" {key: reason}}`. Omit what doesn't change.
 3. `show` lists plans by review queue (and rewrites `review/*.md`): paste its output, never your own table. After edits, `show` again.
 4. On approval ("approve the closes", "all but 1472"), run `approve <queue|N…>` or `unapprove`. The user runs `apply` (or `review` in a terminal), which shows the approved plans, asks, then writes and verifies them; report any ✗. `yml` changes go on a branch: `apply` prints its push and PR commands, and closes the issue on a later run once it's merged.
 5. On a stale base, run `rebase N`, tell the user what changed, and adjust the plan.
@@ -52,6 +52,7 @@ For more than ~8 issues, draft plans with up to 4 parallel `sp-drafter` agents (
 - Close-out (`ready-close`):
   - Read the thread. If no Mozillian objected 7+ days after the proposal, add `position: X`, the `concerns:` the discussion raised (only labels the dossier lists), and missing topic/venue labels, then `close: completed`.
   - Add `yml` (a PR) only when `show` says activities.yml needs it or the user asks for a rationale; draft the text from the thread. Never `Needs a PR`.
+  - `yml.reviewers`: the Mozillians who proposed the position (the dossier's "yml PR reviewers") and those whose concerns it addresses. A lead is added by topic label; set `yml.area` when no label implies one.
   - A Mozillian's "seems reasonable" (a "soft" finding) counts as positive unless hedged.
   - If someone objected, leave the status and put who to ask in `ask`, as with anything you're unsure of.
 - Other closings:
