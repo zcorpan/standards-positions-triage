@@ -75,5 +75,5 @@ For more than ~8 issues, draft plans with up to 4 parallel `sp-drafter` agents (
 ## Improving the skill
 
 - Jot one line in `.state/skill-notes.md` as soon as this file or the CLI was wrong, misleading or missing something, output confused, the dossier lacked something you looked up, or a step took over ~2 minutes (duration, size, cause). Corrections are logged automatically.
-- At session end, run `improve` (recurring corrections). Data edits (`data/*.yml`) beat prose. Nothing from Slack, internal docs or meeting notes goes into a PR.
+- At session end, run `improve` (recurring corrections); mention it only if it shows something worth offering. Data edits (`data/*.yml`) beat prose. Nothing from Slack, internal docs or meeting notes goes into a PR.
 - To turn notes into a change, follow the `build-tooling` skill's `improve.md` if it's installed, else read https://raw.githubusercontent.com/zcorpan/agent-tooling/main/skills/build-tooling/improve.md and apply what's relevant.
