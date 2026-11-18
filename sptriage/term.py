@@ -4,6 +4,7 @@ Terminals without OSC 8 (Terminal.app, or SPTRIAGE_LINKS=url) get the URL on its
 import contextlib
 import os
 import re
+import shutil
 import sys
 
 from . import config
@@ -79,3 +80,8 @@ def label(name, sign=""):
 
 def strip(text):
     return ANSI.sub("", text)
+
+
+def rule():
+    """A dimmed horizontal line across the terminal, at most 80 columns."""
+    return c("─" * min(shutil.get_terminal_size().columns, 80), "dim")

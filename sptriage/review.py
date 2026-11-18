@@ -387,7 +387,7 @@ def interactive(nums=None):
     i = 0
     while i < len(es):
         e = es[i]
-        print()
+        print("\n" + term.rule())
         if e.issue is None:
             print(f"#{e.id}: " + "; ".join(e.errs))
             i += 1
