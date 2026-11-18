@@ -300,7 +300,8 @@ def apply(nums=None, dry_run=False, yes=False):
         for e in entries({n for n in todo if activities.branch_for(n)}, sync.load_issues()):
             if e.pr_kind in HELD:
                 held.append(int(e.id))
-                print(f"{term.issue(int(e.id))} {e.issue['title'][:60]}\n  {_note(e)}\n")
+                if e.pr_kind != "quiet":  # the summary lists it
+                    print(f"{term.issue(int(e.id))} {e.issue['title'][:60]}\n  {_note(e)}\n")
         todo = [n for n in todo if n not in held]
     ok, failed, waiting, yml = [], [], list(held), []
     lp = planmod.path("labels")
@@ -377,6 +378,11 @@ def interactive(nums=None):
         print("`review` needs a terminal; otherwise tick entries in review/*.md or use `approve`.")
         return 1
     es = [e for e in entries(nums, _issues()) if e.id != NEW_LABELS]
+    quiet = [e for e in es if e.pr_kind == "quiet"]
+    if quiet:
+        print(term.c("waiting on an open yml PR, nothing to do: ", "yellow")
+              + " ".join(f"{term.issue(int(e.id))} (PR #{e.pr['number']})" for e in quiet))
+    es = [e for e in es if e.pr_kind != "quiet"]
     approved = current_approved(entries(None, sync.load_issues()))
     i = 0
     while i < len(es):
@@ -390,7 +396,7 @@ def interactive(nums=None):
         k = e.pr_kind
         if k in HELD:
             print(f"{term.issue(int(e.id))} {e.issue['title'][:60]}\n  {_note(e)}")
-            if k in ("quiet", "unopened"):
+            if k == "unopened":
                 i += 1
                 continue
             ans = input("[o]pen PR [s]kip [q]uit ").strip().lower()[:1]

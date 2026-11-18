@@ -278,7 +278,7 @@ class ReviewTests(unittest.TestCase):
     def test_open_yml_pr_holds_the_plan(self):
         review.show()
         review.approve(["7"])
-        cases = ((self.pr(), "once it's merged, `apply` will: +position: positive · close (completed)"), (self.pr(new=2), "2 new comment(s)"),
+        cases = ((self.pr(), "waiting for a yml PR 1: #7"), (self.pr(new=2), "2 new comment(s)"),
                  (self.pr(decision="CHANGES_REQUESTED"), "changes requested"),
                  (self.pr(decision="APPROVED"), "approved: merge it"), ({}, "no PR from branch b yet"))
         for status, note in cases:
@@ -292,6 +292,19 @@ class ReviewTests(unittest.TestCase):
             self.assertIn(note, out.getvalue())
             self.assertIn("waiting for a yml PR 1", out.getvalue())
             self.assertEqual("gh pr create b" in out.getvalue(), status == {})
+
+    def test_review_skips_quiet_waiting_plans(self):
+        review.show()
+        review.approve(["7"])
+        for status, asked in ((self.pr(), False), ({}, False), (self.pr(new=1), True)):
+            with mock.patch("sptriage.activities.branch_for", return_value="b"), \
+                    mock.patch("sptriage.activities.pr_status", return_value=status), \
+                    mock.patch("sys.stdin.isatty", return_value=True), \
+                    mock.patch("builtins.input", return_value="s") as inp, redirect_stdout(io.StringIO()) as out:
+                review.interactive()
+            self.assertEqual(inp.called, asked, status)
+            self.assertEqual("nothing to do: #7 (PR #9)" in out.getvalue(), status == self.pr(), status)
+            self.assertNotIn("Waiting (1/1)", out.getvalue())
 
     def test_waiting_plans_get_pr_queues(self):
         cases = ((self.pr(), "waiting"), ({}, "unopened"), (self.pr(new=1), "changes"),
