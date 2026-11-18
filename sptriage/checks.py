@@ -171,7 +171,7 @@ def continuation(issue, ctx, props):
     return pn, "no reply", f"{head}: no Mozillian reply yet"
 
 
-MENTION_RE = re.compile(r"(?<![\w/@.])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\b")
+MENTION_RE = re.compile(r"(?<![\w/@.])@([A-Za-z0-9][A-Za-z0-9-]{0,38})(?![A-Za-z0-9-])")  # logins may end in "-"
 
 
 def _strip_code(text):

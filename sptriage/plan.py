@@ -22,7 +22,7 @@ LIST_KEYS = ("labels_add", "labels_remove", "assignees_add", "assignees_remove")
 CLOSE_REASONS = {"completed": "completed", "not_planned": "not planned", "duplicate": "duplicate"}
 STATE_REASONS = {"completed": "COMPLETED", "not_planned": "NOT_PLANNED", "duplicate": "DUPLICATE"}
 NO_POSITION_CLOSE = ("duplicate", "invalid", "proposal withdrawn")
-MENTION = re.compile(r"(?<![\w/@.`])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\b")
+MENTION = re.compile(r"(?<![\w/@.`])@([A-Za-z0-9][A-Za-z0-9-]{0,38})(?![A-Za-z0-9-])")  # logins may end in "-"
 LINK_HOSTS = {"bugzilla.mozilla.org", "bugzil.la", "github.com", "chromestatus.com", "webstatus.dev", "developer.mozilla.org",
               "caniuse.com", "web-platform-dx.github.io", "wpt.fyi", "searchfox.org", "groups.google.com", "lists.w3.org"}
 URL = re.compile(r"https?://[^\s)\]>]+")

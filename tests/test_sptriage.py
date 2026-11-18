@@ -74,6 +74,10 @@ class BodyTests(unittest.TestCase):
         self.assertNotEqual(k("https://github.com/w3c/manifest/pull/1175"), k("https://github.com/w3c/csswg-drafts/pull/1"))
         self.assertEqual(k("https://github.com/w3c/csswg-drafts/issues/14613"), (None, None))
 
+    def test_mentions_keep_trailing_dashes(self):
+        self.assertEqual(checks.MENTION_RE.findall("@smaug---- and @zcorpan."), ["smaug----", "zcorpan"])
+        self.assertEqual(plan.mentions("cc @smaug----, @emilio"), ["smaug----", "emilio"])
+
 
 class ProposalTests(unittest.TestCase):
     def test_wording(self):
