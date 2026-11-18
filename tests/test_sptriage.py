@@ -518,6 +518,15 @@ class PhasedApplyTests(unittest.TestCase):
         self.assertEqual(self.calls, [["issue", "close", "7", "-R", config.REPO, "--duplicate-of", "3"]])
         self.assertFalse(plan.path(7).exists())
 
+    def test_part_applied_plan_has_no_stale_warnings(self):
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(plan.apply(7, write=True, yml_out=[]), "waiting")
+        self.par = {**self.par, "labels": ["position: positive"], "updated": "2026-02-01T00:00:00Z",
+                    "comments": [{"author": "me", "body": "See #7.", "at": "x"}]}
+        with mock.patch("sptriage.activities.branch_for", return_value="b"):
+            _, _, errs, warns, _ = plan.check(7, {7: self.child, 3: self.par})
+        self.assertEqual((errs, warns), ([], []))
+
     def test_closed_pr_rebranches_only_after_the_yml_changes(self):
         with redirect_stdout(io.StringIO()):
             self.assertEqual(plan.apply(7, write=True, yml_out=[]), "waiting")  # the GitHub edits

@@ -216,8 +216,9 @@ def validate(plan, issue, labels_planned=(), parent=None, plan_id=None):
             near = difflib.get_close_matches(l, list(labels), n=3, cutoff=0.5)
             errs.append(f"label {l!r} doesn't exist" + (f"; closest: {', '.join(near)}" if near else "")
                         + " (or add it to plans/labels.json via `labels`)")
+    written = str(issue["number"]) in progress(plan_id)  # `apply` made this issue's edits; it may lack the label now
     for l in plan.get("labels_remove", []):
-        if l not in issue["labels"]:
+        if l not in issue["labels"] and not written:
             warns.append(f"label {l!r} isn't on the issue")
     if plan.get("status") and plan["status"] not in config.STATUSES:
         errs.append(f"status {plan['status']!r} not one of {config.STATUSES}")
@@ -256,7 +257,7 @@ def validate(plan, issue, labels_planned=(), parent=None, plan_id=None):
         if not _host_ok(u):
             errs.append(f"comment links {u}: not an allowed host (don't relay links from the thread; cite the "
                         "spec, bug or issue instead)")
-    errs += _pr_key_problems(y, warns)
+    errs += _pr_key_problems(y, warns if not activities.branch_for(plan_id) else [])
     who = mentions(plan.get("comment"))
     known = mentionable(issue) if who else set()
     for m in who:
