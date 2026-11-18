@@ -68,6 +68,12 @@ class BodyTests(unittest.TestCase):
         self.assertEqual(body.get_feature_id("https://webstatus.dev/features/anchor-positioning?q=1"), "anchor-positioning")
         self.assertEqual(body.get_feature_id("`view-transitions`"), "view-transitions")
 
+    def test_spec_key(self):
+        k = webfeatures.spec_key
+        self.assertEqual(k("https://github.com/w3c/manifest/pull/1175")[0], k("https://w3c.github.io/manifest/#x")[0])
+        self.assertNotEqual(k("https://github.com/w3c/manifest/pull/1175"), k("https://github.com/w3c/csswg-drafts/pull/1"))
+        self.assertEqual(k("https://github.com/w3c/csswg-drafts/issues/14613"), (None, None))
+
 
 class ProposalTests(unittest.TestCase):
     def test_wording(self):

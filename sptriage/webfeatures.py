@@ -146,6 +146,10 @@ def spec_key(url):
         short = host.split(".")[0]
     elif host == "w3.org" and parts[:1] == ["TR"]:
         short = parts[1] if len(parts) > 1 else ""
+    elif host == "github.com":  # a repo (an issue isn't a spec)
+        if len(parts) < 2 or parts[2:3] == ["issues"]:
+            return None, None
+        short = parts[1]
     else:
         short = parts[0] if parts else host
     short = re.sub(r"-\d+$", "", short.lower())
